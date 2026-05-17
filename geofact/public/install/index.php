@@ -112,10 +112,12 @@ function runComposerInstall(): array {
 function checkRequirements(): array {
     $checks = [];
 
+    // Laravel 13 + Symfony 8 requièrent PHP 8.4 minimum
+    $phpOk = version_compare(PHP_VERSION, '8.4.0', '>=');
     $checks['php_version'] = [
-        'label' => 'PHP >= 8.2',
-        'ok' => version_compare(PHP_VERSION, '8.2.0', '>='),
-        'value' => PHP_VERSION,
+        'label' => 'PHP >= 8.4 (Laravel 13 / Symfony 8)',
+        'ok'    => $phpOk,
+        'value' => PHP_VERSION . ($phpOk ? '' : ' ✗  → Dans cPanel : MultiPHP Manager (ou PHP Selector) → sélectionnez PHP 8.4 pour ce domaine, puis rechargez cette page.'),
         'required' => true,
     ];
 
