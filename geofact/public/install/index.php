@@ -908,10 +908,10 @@ input:focus,select:focus{outline:none;border-color:#f97316;box-shadow:0 0 0 3px 
         <div class="success-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
-        <h2>Installation Complete!</h2>
-        <p>IKOMA GEOFACT has been successfully installed. You can now log in to your new fleet intelligence platform.</p>
+        <h2>Installation réussie !</h2>
+        <p>IKOMA GEOFACT est installé. Redirection vers la page de connexion dans <strong><span id="redirect-countdown">4</span></strong> secondes…</p>
         <a href="#" id="success-link" class="btn btn-primary" style="font-size:1rem;padding:14px 32px">
-          Go to Application
+          Aller à la page de connexion
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
       </div>
@@ -1065,8 +1065,18 @@ function startInstall() {
       if (data.ok) {
         const successEl = document.getElementById('install-success');
         successEl.style.display = 'block';
+        const loginUrl = (data.app_url || '').replace(/\/$/, '') + '/login';
         const link = document.getElementById('success-link');
-        if (data.app_url) link.href = data.app_url;
+        link.href = loginUrl;
+        // Redirection automatique après 4 secondes
+        let countdown = 4;
+        const countEl = document.getElementById('redirect-countdown');
+        if (countEl) countEl.textContent = countdown;
+        const timer = setInterval(() => {
+          countdown--;
+          if (countEl) countEl.textContent = countdown;
+          if (countdown <= 0) { clearInterval(timer); window.location.href = loginUrl; }
+        }, 1000);
       } else {
         const errCard = document.getElementById('install-error-card');
         const errMsg  = document.getElementById('install-error-msg');
