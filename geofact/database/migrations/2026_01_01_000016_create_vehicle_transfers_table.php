@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -25,18 +26,18 @@ return new class extends Migration
             $table->dateTime('validated_at')->nullable();
             $table->text('notes')->nullable();
 
-            $table->index('vehicle_id', 'idx_vehicle');
-            $table->index('status', 'idx_status');
-            $table->index('source_organization_id', 'idx_source_org');
-            $table->index('target_organization_id', 'idx_target_org');
-            $table->index('effective_date', 'idx_effective_date');
+            $table->index('vehicle_id', 'idx_vehicle_transfers_vehicle');
+            $table->index('status', 'idx_vehicle_transfers_status');
+            $table->index('source_organization_id', 'idx_vehicle_transfers_source_org');
+            $table->index('target_organization_id', 'idx_vehicle_transfers_target_org');
+            $table->index('effective_date', 'idx_vehicle_transfers_effective_date');
 
             $table->foreign('vehicle_id', 'fk_transfer_vehicle')
                   ->references('id')->on('vehicles')
                   ->onDelete('RESTRICT')->onUpdate('CASCADE');
         });
 
-        DB::statement('ALTER TABLE vehicle_transfers ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE vehicle_transfers ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

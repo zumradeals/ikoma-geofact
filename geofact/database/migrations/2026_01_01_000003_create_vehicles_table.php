@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -25,10 +26,10 @@ return new class extends Migration
             $table->dateTime('deleted_at')->nullable();
 
             $table->unique(['plate', 'organization_id'], 'uq_plate_org');
-            $table->index('fleet_id', 'idx_fleet');
-            $table->index('organization_id', 'idx_organization');
-            $table->index('status', 'idx_status');
-            $table->index('plate', 'idx_plate');
+            $table->index('fleet_id', 'idx_vehicles_fleet');
+            $table->index('organization_id', 'idx_vehicles_organization');
+            $table->index('status', 'idx_vehicles_status');
+            $table->index('plate', 'idx_vehicles_plate');
 
             $table->foreign('fleet_id', 'fk_vehicle_fleet')
                   ->references('id')->on('fleets')
@@ -39,7 +40,7 @@ return new class extends Migration
                   ->onDelete('RESTRICT')->onUpdate('CASCADE');
         });
 
-        DB::statement('ALTER TABLE vehicles ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE vehicles ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

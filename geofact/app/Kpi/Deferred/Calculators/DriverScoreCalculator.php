@@ -4,6 +4,7 @@ namespace App\Kpi\Deferred\Calculators;
 
 use App\Models\TelemetryEvent;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DriverScoreCalculator
 {
@@ -21,10 +22,12 @@ class DriverScoreCalculator
         $harshBrakingCount = (clone $base)->where('event_type', 'alert.harsh.braking')->count();
         $suspiciousStopCount = (clone $base)->where('event_type', 'alert.stop.suspicious')->count();
 
-        // Activité nocturne : événements entre 22h et 06h
-        $nightCount = (clone $base)
-            ->whereRaw('HOUR(ts) >= 22 OR HOUR(ts) < 6')
-            ->count();
+        // Activité nocturne : événements entre 22h et 06h (SQLite: strftime, MySQL: HOUR)
+        $driver = DB::connection()->getDriverName();
+        $nightExpr = $driver === 'sqlite'
+            ? "(CAST(strftime('%H', ts) AS INTEGER) >= 22 OR CAST(strftime('%H', ts) AS INTEGER) < 6)"
+            : '(HOUR(ts) >= 22 OR HOUR(ts) < 6)';
+        $nightCount = (clone $base)->whereRaw($nightExpr)->count();
 
         $score = 100
             - ($overspeedCount    * 3)

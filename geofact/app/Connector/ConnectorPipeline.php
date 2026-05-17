@@ -5,7 +5,7 @@ namespace App\Connector;
 use App\Connector\Auth\ConnectorAuthenticator;
 use App\Connector\Deduplication\TransportDeduplicator;
 use App\Connector\Normalizer\FieldNormalizer;
-use App\Core\Canonical\CanonicalDeduplicator;
+use App\Core\Deduplication\CanonicalDeduplicator;
 use App\Core\Canonical\CanonicalEventFactory;
 use App\Core\Canonical\CompletenessEvaluator;
 use App\Core\TenantResolver;
@@ -54,11 +54,16 @@ class ConnectorPipeline
         $rawPayload = $request->getContent();
 
         // ── Étape 1 : Auth Connector ───────────────────────────────────────────
-        try {
-            $connector = $this->authenticator->authenticate($request);
-        } catch (ConnectorAuthException $e) {
-            Log::warning('geofact.pipeline.auth_failed', ['error' => $e->getMessage()]);
-            throw $e; // Rien n'est écrit — stop total (C-10)
+        // Si le middleware a déjà authentifié (X-Connector-Token ou JWT Bearer),
+        // réutiliser le connector injecté plutôt que de re-authentifier.
+        $connector = $request->get('_connector');
+        if (! $connector instanceof Connector) {
+            try {
+                $connector = $this->authenticator->authenticate($request);
+            } catch (ConnectorAuthException $e) {
+                Log::warning('geofact.pipeline.auth_failed', ['error' => $e->getMessage()]);
+                throw $e; // Rien n'est écrit — stop total (C-10)
+            }
         }
 
         // ── Étape 2 : Raw Store ────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -21,14 +22,14 @@ return new class extends Migration
 
             // Pas de created_at / updated_at — table immuable (DC-11)
 
-            $table->index('connector_id', 'idx_connector');
-            $table->index('organization_id', 'idx_organization');
-            $table->index('received_at', 'idx_received_at');
-            $table->index('flag', 'idx_flag');
-            $table->index('canonical_ref', 'idx_canonical_ref');
+            $table->index('connector_id', 'idx_raw_store_connector');
+            $table->index('organization_id', 'idx_raw_store_organization');
+            $table->index('received_at', 'idx_raw_store_received_at');
+            $table->index('flag', 'idx_raw_store_flag');
+            $table->index('canonical_ref', 'idx_raw_store_canonical_ref');
         });
 
-        DB::statement('ALTER TABLE raw_store ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE raw_store ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

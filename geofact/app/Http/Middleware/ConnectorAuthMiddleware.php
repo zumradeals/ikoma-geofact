@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Exceptions\ConnectorAuthException;
 use App\Models\Connector;
 use Closure;
 use Illuminate\Http\Request;
@@ -17,23 +16,48 @@ class ConnectorAuthMiddleware
     /**
      * Authentifie un Connector sur les routes webhook.
      *
-     * Vérifie dans l'ordre :
-     * 1. connector_id présent dans le payload JWT
-     * 2. Connector existe et status = active
-     * 3. token_hash bcrypt correspond au token présenté
-     * 4. token_version du JWT >= token_version en base
+     * Deux modes :
+     * - X-Connector-Token header : token brut vérifié via bcrypt contre token_hash
+     * - Authorization: Bearer <jwt> : JWT avec sub=connector_id + token_version
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Mode 1 : X-Connector-Token (devices GPS, tokens pré-partagés)
+        $rawToken = $request->header('X-Connector-Token');
+        if ($rawToken) {
+            return $this->authenticateRawToken($rawToken, $request, $next);
+        }
+
+        // Mode 2 : Authorization: Bearer <jwt>
+        $bearerToken = $this->extractBearer($request);
+        if ($bearerToken) {
+            return $this->authenticateJwt($bearerToken, $request, $next);
+        }
+
+        return $this->reject('Token connector manquant.');
+    }
+
+    private function authenticateRawToken(string $token, Request $request, Closure $next): Response
+    {
+        // Cherche un connector actif dont le token_hash correspond
+        $connector = Connector::where('status', 'active')
+            ->get()
+            ->first(fn(Connector $c) => Hash::check($token, $c->token_hash));
+
+        if (! $connector) {
+            Log::warning('geofact.connector.auth.raw_token_invalid');
+            return $this->reject('Token connector invalide.');
+        }
+
+        $request->merge(['_connector' => $connector]);
+        return $next($request);
+    }
+
+    private function authenticateJwt(string $token, Request $request, Closure $next): Response
+    {
         try {
-            $token = $this->extractToken($request);
-
-            if (! $token) {
-                return $this->reject('Token connector manquant.');
-            }
-
-            $payload     = JWTAuth::setToken($token)->getPayload();
-            $connectorId = $payload->get('sub');
+            $payload      = JWTAuth::setToken($token)->getPayload();
+            $connectorId  = $payload->get('sub');
             $tokenVersion = (int) $payload->get('token_version', 0);
 
             if (! $connectorId) {
@@ -55,13 +79,11 @@ class ConnectorAuthMiddleware
                 return $this->reject("Connector {$connector->status} — accès refusé.");
             }
 
-            // Vérification token_hash (bcrypt)
             if (! Hash::check($token, $connector->token_hash)) {
                 Log::warning('geofact.connector.auth.token_hash_mismatch', ['connector_id' => $connectorId]);
                 return $this->reject('Token connector invalide.');
             }
 
-            // Vérification token_version — toute version inférieure rejetée
             if ($tokenVersion < $connector->token_version) {
                 Log::warning('geofact.connector.auth.token_version_rejected', [
                     'connector_id'  => $connectorId,
@@ -71,9 +93,7 @@ class ConnectorAuthMiddleware
                 return $this->reject('Token connector révoqué — version expirée.');
             }
 
-            // Injecter le connector dans la requête
             $request->merge(['_connector' => $connector]);
-
             return $next($request);
 
         } catch (JWTException $e) {
@@ -82,7 +102,7 @@ class ConnectorAuthMiddleware
         }
     }
 
-    private function extractToken(Request $request): ?string
+    private function extractBearer(Request $request): ?string
     {
         $header = $request->header('Authorization', '');
         if (str_starts_with($header, 'Bearer ')) {

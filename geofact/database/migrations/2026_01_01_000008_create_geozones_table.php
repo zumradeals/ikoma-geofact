@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -24,18 +25,18 @@ return new class extends Migration
             $table->dateTime('created_at')->useCurrent();
             $table->dateTime('updated_at')->useCurrent()->useCurrentOnUpdate();
 
-            $table->index('organization_id', 'idx_organization');
-            $table->index('fleet_id', 'idx_fleet');
-            $table->index('status', 'idx_status');
-            $table->index('zone_type', 'idx_type');
-            $table->index(['id', 'version'], 'idx_version');
+            $table->index('organization_id', 'idx_geozones_organization');
+            $table->index('fleet_id', 'idx_geozones_fleet');
+            $table->index('status', 'idx_geozones_status');
+            $table->index('zone_type', 'idx_geozones_type');
+            $table->index(['id', 'version'], 'idx_geozones_version');
 
             $table->foreign('organization_id', 'fk_geozone_organization')
                   ->references('id')->on('organizations')
                   ->onDelete('RESTRICT')->onUpdate('CASCADE');
         });
 
-        DB::statement('ALTER TABLE geozones ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE geozones ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void
