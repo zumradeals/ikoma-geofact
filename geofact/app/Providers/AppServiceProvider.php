@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Delivery\DeliveryEngine;
+use App\Events\AlertTriggered;
 use App\Events\CanonicalEventReceived;
 use App\Kpi\RealTime\RtKpiEngine;
 use App\Rules\Engine\RulesEngine;
@@ -22,5 +24,8 @@ class AppServiceProvider extends ServiceProvider
 
         // CanonicalEventReceived → RtKpiEngine (C-05 pipeline RT)
         Event::listen(CanonicalEventReceived::class, RtKpiEngine::class);
+
+        // AlertTriggered → DeliveryEngine (C-07 — jamais d'appel direct depuis Rules)
+        Event::listen(AlertTriggered::class, DeliveryEngine::class);
     }
 }
