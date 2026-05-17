@@ -91,7 +91,17 @@ function runComposerInstall(): array {
     if (!$composer) {
         return ['ok' => false, 'output' => 'Composer introuvable. Lancez manuellement depuis SSH : cd ' . LARAVEL_ROOT . ' && composer install --no-dev'];
     }
-    $cmd = escapeshellarg($php) . ' ' . escapeshellarg($composer)
+
+    // HOME et COMPOSER_HOME sont absents en contexte web — les définir explicitement
+    $composerHome = sys_get_temp_dir() . '/.composer_install';
+    if (!is_dir($composerHome)) @mkdir($composerHome, 0755, true);
+    $homeDir = sys_get_temp_dir();
+
+    $env = 'HOME=' . escapeshellarg($homeDir)
+         . ' COMPOSER_HOME=' . escapeshellarg($composerHome)
+         . ' COMPOSER_ALLOW_SUPERUSER=1';
+
+    $cmd = $env . ' ' . escapeshellarg($php) . ' ' . escapeshellarg($composer)
          . ' install --no-dev --optimize-autoloader --no-interaction --working-dir='
          . escapeshellarg(LARAVEL_ROOT) . ' 2>&1';
     exec($cmd, $out, $code);
