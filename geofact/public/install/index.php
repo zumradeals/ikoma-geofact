@@ -43,6 +43,41 @@ function runArtisan(string $cmd): array {
     return ['ok' => $code === 0, 'output' => implode("\n", $out)];
 }
 
+function findComposer(): ?string {
+    // Chercher composer dans les emplacements courants cPanel/VPS
+    $candidates = [
+        LARAVEL_ROOT . '/composer.phar',
+        '/usr/local/bin/composer',
+        '/usr/bin/composer',
+        '/opt/cpanel/composer/bin/composer',
+    ];
+    foreach ($candidates as $path) {
+        if (file_exists($path)) return $path;
+    }
+    // Tenter which composer
+    $out = [];
+    exec('which composer 2>/dev/null', $out);
+    if (!empty($out[0]) && file_exists(trim($out[0]))) return trim($out[0]);
+    return null;
+}
+
+function runComposerInstall(): array {
+    $vendor = LARAVEL_ROOT . '/vendor/autoload.php';
+    if (file_exists($vendor)) {
+        return ['ok' => true, 'output' => 'vendor/ déjà présent, étape ignorée.'];
+    }
+    $php = PHP_BINARY;
+    $composer = findComposer();
+    if (!$composer) {
+        return ['ok' => false, 'output' => 'Composer introuvable. Lancez manuellement : composer install --no-dev dans le répertoire de l\'application, puis relancez l\'installation.'];
+    }
+    $cmd = escapeshellarg($php) . ' ' . escapeshellarg($composer)
+         . ' install --no-dev --optimize-autoloader --no-interaction --working-dir='
+         . escapeshellarg(LARAVEL_ROOT) . ' 2>&1';
+    exec($cmd, $out, $code);
+    return ['ok' => $code === 0, 'output' => implode("\n", $out)];
+}
+
 // ─── Requirements ────────────────────────────────────────────────────────────
 function checkRequirements(): array {
     $checks = [];
@@ -275,13 +310,17 @@ function doInstall(): void {
     }
 
     $writeOk = writeEnvFile($envVars);
-    $steps[] = ['label' => 'Writing .env file', 'ok' => $writeOk, 'output' => $writeOk ? 'Done' : 'Failed to write ' . ENV_FILE];
+    $steps[] = ['label' => 'Écriture du fichier .env', 'ok' => $writeOk, 'output' => $writeOk ? 'OK' : 'Impossible d\'écrire ' . ENV_FILE];
     if (!$writeOk) { echo json_encode(['ok' => false, 'steps' => $steps]); return; }
 
-    // Step 2: Clear config cache
-    $r = runArtisan('config:clear');
-    $steps[] = ['label' => 'Clearing config cache', 'ok' => $r['ok'], 'output' => $r['output']];
+    // Step 2: Composer install (si vendor/ absent)
+    $r = runComposerInstall();
+    $steps[] = ['label' => 'Installation des dépendances (composer install)', 'ok' => $r['ok'], 'output' => $r['output']];
     if (!$r['ok']) { echo json_encode(['ok' => false, 'steps' => $steps]); return; }
+
+    // Step 3: Clear config cache
+    $r = runArtisan('config:clear');
+    $steps[] = ['label' => 'Nettoyage du cache de configuration', 'ok' => $r['ok'] || true, 'output' => $r['output']]; // non bloquant
 
     // Step 3: Migrate
     $r = runArtisan('migrate --force --no-interaction');
