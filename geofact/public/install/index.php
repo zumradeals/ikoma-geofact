@@ -36,15 +36,36 @@ function generateUuidV4(): string {
 }
 
 // ─── Artisan runner ──────────────────────────────────────────────────────────
+function findPhpCli(): string {
+    // Sur cPanel/CloudLinux, le PHP CLI diffère du PHP web (CGI/FPM)
+    $major = PHP_MAJOR_VERSION;
+    $minor = PHP_MINOR_VERSION;
+    $candidates = [
+        "/opt/alt/php{$major}{$minor}/usr/bin/php",   // CloudLinux alt-php
+        "/usr/local/bin/ea-php{$major}{$minor}",       // cPanel EA-PHP
+        "/usr/local/bin/php{$major}.{$minor}",
+        "/usr/local/bin/php",
+        "/usr/bin/php",
+        "php",
+    ];
+    foreach ($candidates as $path) {
+        $out = [];
+        exec(escapeshellarg($path) . ' -r "echo PHP_SAPI;" 2>/dev/null', $out, $code);
+        if ($code === 0 && isset($out[0]) && trim($out[0]) === 'cli') {
+            return $path;
+        }
+    }
+    return PHP_BINARY; // fallback
+}
+
 function runArtisan(string $cmd): array {
-    $php = PHP_BINARY;
+    $php = findPhpCli();
     $artisan = LARAVEL_ROOT . '/artisan';
     exec(escapeshellarg($php) . ' ' . escapeshellarg($artisan) . ' ' . $cmd . ' 2>&1', $out, $code);
     return ['ok' => $code === 0, 'output' => implode("\n", $out)];
 }
 
 function findComposer(): ?string {
-    // Chercher composer dans les emplacements courants cPanel/VPS
     $candidates = [
         LARAVEL_ROOT . '/composer.phar',
         '/usr/local/bin/composer',
@@ -54,7 +75,6 @@ function findComposer(): ?string {
     foreach ($candidates as $path) {
         if (file_exists($path)) return $path;
     }
-    // Tenter which composer
     $out = [];
     exec('which composer 2>/dev/null', $out);
     if (!empty($out[0]) && file_exists(trim($out[0]))) return trim($out[0]);
@@ -66,10 +86,10 @@ function runComposerInstall(): array {
     if (file_exists($vendor)) {
         return ['ok' => true, 'output' => 'vendor/ déjà présent, étape ignorée.'];
     }
-    $php = PHP_BINARY;
+    $php = findPhpCli();
     $composer = findComposer();
     if (!$composer) {
-        return ['ok' => false, 'output' => 'Composer introuvable. Lancez manuellement : composer install --no-dev dans le répertoire de l\'application, puis relancez l\'installation.'];
+        return ['ok' => false, 'output' => 'Composer introuvable. Lancez manuellement depuis SSH : cd ' . LARAVEL_ROOT . ' && composer install --no-dev'];
     }
     $cmd = escapeshellarg($php) . ' ' . escapeshellarg($composer)
          . ' install --no-dev --optimize-autoloader --no-interaction --working-dir='
