@@ -136,16 +136,23 @@ if (isset($_GET['action'])) {
         $user = trim($_POST['db_user'] ?? '');
         $pass = $_POST['db_pass'] ?? '';
         try {
-            $dsn = "mysql:host={$host};port={$port};charset=utf8mb4";
-            $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_TIMEOUT => 5, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-            if ($dbname !== '') {
-                $pdo->exec("CREATE DATABASE IF NOT EXISTS " . $pdo->quote($dbname) . " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                $pdo->exec("USE " . $pdo->quote($dbname));
+            // Sur cPanel, la base doit être pré-créée — on ne tente pas CREATE DATABASE
+            if ($dbname === '') {
+                echo json_encode(['ok' => false, 'message' => 'Veuillez saisir le nom de la base de données.']);
+                exit;
             }
+            $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+            $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_TIMEOUT => 5, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
             $version = $pdo->query('SELECT VERSION()')->fetchColumn();
-            echo json_encode(['ok' => true, 'message' => 'Connected. MySQL ' . $version]);
+            echo json_encode(['ok' => true, 'message' => 'Connexion réussie — ' . $version]);
         } catch (PDOException $e) {
-            echo json_encode(['ok' => false, 'message' => 'Connection failed: ' . $e->getMessage()]);
+            $hint = '';
+            if (str_contains($e->getMessage(), 'Unknown database')) {
+                $hint = ' — Créez d\'abord la base de données dans cPanel → MySQL Databases.';
+            } elseif (str_contains($e->getMessage(), 'Access denied')) {
+                $hint = ' — Vérifiez le nom d\'utilisateur et le mot de passe.';
+            }
+            echo json_encode(['ok' => false, 'message' => 'Échec : ' . $e->getMessage() . $hint]);
         }
         exit;
     }
