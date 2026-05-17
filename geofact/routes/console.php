@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\EscalateUnacknowledgedAlerts;
 use App\Kpi\Deferred\DfKpiEngine;
 use App\Kpi\Deferred\DfKpiVersioner;
 use Carbon\Carbon;
@@ -47,3 +48,9 @@ Schedule::call(function () {
     $engine->computeMonthlyReport($from, $to, $runId);
     $engine->computeBehavioralAnalysis($from, $to, $runId);
 })->monthlyOn(1, '03:00')->name('kpi.monthly_report')->withoutOverlapping();
+
+// ── Delivery Engine — Escalade des Alerts non-acquittées (C-07) ───────────────
+Schedule::job(new EscalateUnacknowledgedAlerts())
+    ->everyThirtyMinutes()
+    ->name('delivery.escalate_unacknowledged')
+    ->withoutOverlapping();
