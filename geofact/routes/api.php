@@ -62,4 +62,10 @@ Route::prefix('v1')->group(function () {
         Route::get('insights/{scopeType}/{scopeId}',          [\App\Http\Controllers\Api\V1\InsightController::class, 'show']);
         Route::post('insights/{scopeType}/{scopeId}/generate', [\App\Http\Controllers\Api\V1\InsightController::class, 'generate']);
     });
+
+    // Webhook Connector — authentifié par connector.auth (pas de JWT humain)
+    Route::prefix('webhook')->middleware(['connector.auth'])->group(function () {
+        Route::post('connector/ingest', [\App\Http\Controllers\Api\V1\ConnectorController::class, 'ingest']);
+        Route::get('connector/pull/{id}', [\App\Http\Controllers\Api\V1\ConnectorController::class, 'pull']);
+    });
 });
