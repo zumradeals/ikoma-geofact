@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -22,14 +23,14 @@ return new class extends Migration
             $table->tinyInteger('version')->unsigned()->default(1);
             $table->dateTime('generated_at')->useCurrent();
 
-            $table->index('organization_id', 'idx_organization');
-            $table->index(['scope_type', 'scope_id'], 'idx_scope');
-            $table->index('insight_type', 'idx_type');
-            $table->index('generated_at', 'idx_generated_at');
-            $table->index('confidence_level', 'idx_confidence');
+            $table->index('organization_id', 'idx_insights_organization');
+            $table->index(['scope_type', 'scope_id'], 'idx_insights_scope');
+            $table->index('insight_type', 'idx_insights_type');
+            $table->index('generated_at', 'idx_insights_generated_at');
+            $table->index('confidence_level', 'idx_insights_confidence');
         });
 
-        DB::statement('ALTER TABLE insights ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE insights ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

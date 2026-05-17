@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -29,18 +30,18 @@ return new class extends Migration
             $table->json('payload');
             $table->enum('completeness', ['COMPLETE', 'INCOMPLETE', 'REJECTED'])->default('COMPLETE');
             $table->json('missing_fields')->nullable();
-            $table->char('raw_ref', 36);  // référence Raw Store
+            $table->char('raw_ref', 36)->nullable();  // référence Raw Store
 
             // Pas de updated_at — table immuable (DC-10)
 
-            $table->index('vehicle_id', 'idx_vehicle');
-            $table->index('device_id', 'idx_device');
-            $table->index('organization_id', 'idx_organization');
-            $table->index('trip_id', 'idx_trip');
-            $table->index('ts', 'idx_ts');
-            $table->index('event_type', 'idx_event_type');
-            $table->index('completeness', 'idx_completeness');
-            $table->index(['vehicle_id', 'ts'], 'idx_vehicle_ts');
+            $table->index('vehicle_id', 'idx_telemetry_events_vehicle');
+            $table->index('device_id', 'idx_telemetry_events_device');
+            $table->index('organization_id', 'idx_telemetry_events_organization');
+            $table->index('trip_id', 'idx_telemetry_events_trip');
+            $table->index('ts', 'idx_telemetry_events_ts');
+            $table->index('event_type', 'idx_telemetry_events_event_type');
+            $table->index('completeness', 'idx_telemetry_events_completeness');
+            $table->index(['vehicle_id', 'ts'], 'idx_telemetry_events_vehicle_ts');
 
             $table->foreign('device_id', 'fk_telemetry_device')
                   ->references('id')->on('devices')
@@ -51,7 +52,7 @@ return new class extends Migration
                   ->onDelete('RESTRICT')->onUpdate('CASCADE');
         });
 
-        DB::statement('ALTER TABLE telemetry_events ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE telemetry_events ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

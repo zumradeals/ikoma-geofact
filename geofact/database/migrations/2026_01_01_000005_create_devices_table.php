@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -23,11 +24,11 @@ return new class extends Migration
             $table->dateTime('updated_at')->useCurrent()->useCurrentOnUpdate();
 
             $table->unique('imei', 'uq_imei');
-            $table->index('vehicle_id', 'idx_vehicle');
-            $table->index('organization_id', 'idx_organization');
-            $table->index('status', 'idx_status');
-            $table->index('last_seen_at', 'idx_last_seen');
-            $table->index('imei', 'idx_imei');
+            $table->index('vehicle_id', 'idx_devices_vehicle');
+            $table->index('organization_id', 'idx_devices_organization');
+            $table->index('status', 'idx_devices_status');
+            $table->index('last_seen_at', 'idx_devices_last_seen');
+            $table->index('imei', 'idx_devices_imei');
 
             $table->foreign('vehicle_id', 'fk_device_vehicle')
                   ->references('id')->on('vehicles')
@@ -38,7 +39,7 @@ return new class extends Migration
                   ->onDelete('RESTRICT')->onUpdate('CASCADE');
         });
 
-        DB::statement('ALTER TABLE devices ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE devices ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

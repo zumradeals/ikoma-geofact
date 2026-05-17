@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -27,14 +28,14 @@ return new class extends Migration
             $table->dateTime('created_at')->useCurrent();
             $table->dateTime('updated_at')->useCurrent()->useCurrentOnUpdate();
 
-            $table->index('vehicle_id', 'idx_vehicle');
-            $table->index('driver_id', 'idx_driver');
-            $table->index('organization_id', 'idx_organization');
-            $table->index('fleet_id', 'idx_fleet');
-            $table->index('status', 'idx_status');
-            $table->index('started_at', 'idx_started_at');
-            $table->index('ended_at', 'idx_ended_at');
-            $table->index(['vehicle_id', 'status'], 'idx_vehicle_status');
+            $table->index('vehicle_id', 'idx_trips_vehicle');
+            $table->index('driver_id', 'idx_trips_driver');
+            $table->index('organization_id', 'idx_trips_organization');
+            $table->index('fleet_id', 'idx_trips_fleet');
+            $table->index('status', 'idx_trips_status');
+            $table->index('started_at', 'idx_trips_started_at');
+            $table->index('ended_at', 'idx_trips_ended_at');
+            $table->index(['vehicle_id', 'status'], 'idx_trips_vehicle_status');
 
             $table->foreign('vehicle_id', 'fk_trip_vehicle')
                   ->references('id')->on('vehicles')
@@ -53,7 +54,7 @@ return new class extends Migration
                   ->onDelete('RESTRICT')->onUpdate('CASCADE');
         });
 
-        DB::statement('ALTER TABLE trips ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE trips ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

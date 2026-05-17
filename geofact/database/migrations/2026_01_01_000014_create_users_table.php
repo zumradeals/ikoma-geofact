@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -25,17 +26,17 @@ return new class extends Migration
             $table->dateTime('updated_at')->useCurrent()->useCurrentOnUpdate();
             $table->dateTime('deleted_at')->nullable();
 
-            $table->index('organization_id', 'idx_organization');
-            $table->index('role', 'idx_role');
-            $table->index('status', 'idx_status');
-            $table->index('email', 'idx_email');
+            $table->index('organization_id', 'idx_users_organization');
+            $table->index('role', 'idx_users_role');
+            $table->index('status', 'idx_users_status');
+            $table->index('email', 'idx_users_email');
 
             $table->foreign('organization_id', 'fk_user_organization')
                   ->references('id')->on('organizations')
                   ->onDelete('RESTRICT')->onUpdate('CASCADE');
         });
 
-        DB::statement('ALTER TABLE users ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE users ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

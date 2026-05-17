@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -25,16 +26,16 @@ return new class extends Migration
 
             // Pas de updated_at — table immuable (DC-12)
 
-            $table->index('organization_id', 'idx_organization');
-            $table->index(['scope_type', 'scope_id'], 'idx_scope');
-            $table->index('kpi_type', 'idx_kpi_type');
-            $table->index('mode', 'idx_mode');
-            $table->index(['period_from', 'period_to'], 'idx_period');
-            $table->index('computed_at', 'idx_computed_at');
-            $table->index(['scope_id', 'kpi_type', 'period_from'], 'idx_scope_kpi_period');
+            $table->index('organization_id', 'idx_kpi_records_organization');
+            $table->index(['scope_type', 'scope_id'], 'idx_kpi_records_scope');
+            $table->index('kpi_type', 'idx_kpi_records_kpi_type');
+            $table->index('mode', 'idx_kpi_records_mode');
+            $table->index(['period_from', 'period_to'], 'idx_kpi_records_period');
+            $table->index('computed_at', 'idx_kpi_records_computed_at');
+            $table->index(['scope_id', 'kpi_type', 'period_from'], 'idx_kpi_records_scope_kpi_period');
         });
 
-        DB::statement('ALTER TABLE kpi_records ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE kpi_records ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void

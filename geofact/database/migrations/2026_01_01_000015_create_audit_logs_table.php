@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -25,15 +26,15 @@ return new class extends Migration
             // Pas de updated_at — table immuable (DC-15)
             // Pas de FK — actor_id peut être system
 
-            $table->index('actor_id', 'idx_actor');
-            $table->index('organization_id', 'idx_organization');
-            $table->index(['resource_type', 'resource_id'], 'idx_resource');
-            $table->index('result', 'idx_result');
-            $table->index('created_at', 'idx_created_at');
-            $table->index('action', 'idx_action');
+            $table->index('actor_id', 'idx_audit_logs_actor');
+            $table->index('organization_id', 'idx_audit_logs_organization');
+            $table->index(['resource_type', 'resource_id'], 'idx_audit_logs_resource');
+            $table->index('result', 'idx_audit_logs_result');
+            $table->index('created_at', 'idx_audit_logs_created_at');
+            $table->index('action', 'idx_audit_logs_action');
         });
 
-        DB::statement('ALTER TABLE audit_logs ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (DB::connection()->getDriverName() !== 'sqlite') { DB::statement('ALTER TABLE audit_logs ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'); }
     }
 
     public function down(): void
