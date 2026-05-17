@@ -139,8 +139,9 @@ if (isset($_GET['action'])) {
             $dsn = "mysql:host={$host};port={$port};charset=utf8mb4";
             $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_TIMEOUT => 5, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
             if ($dbname !== '') {
-                $pdo->exec("CREATE DATABASE IF NOT EXISTS " . $pdo->quote($dbname) . " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                $pdo->exec("USE " . $pdo->quote($dbname));
+                $safeDb = '`' . str_replace('`', '', $dbname) . '`';
+                $pdo->exec("CREATE DATABASE IF NOT EXISTS {$safeDb} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $pdo->exec("USE {$safeDb}");
             }
             $version = $pdo->query('SELECT VERSION()')->fetchColumn();
             echo json_encode(['ok' => true, 'message' => 'Connected. MySQL ' . $version]);
