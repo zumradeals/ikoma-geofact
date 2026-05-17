@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Connector\Normalizer;
+
+class NormalizationMap
+{
+    /**
+     * Dictionnaire de mapping par provider_id.
+     * Contrat C-10 : le Connector traduit les champs fournisseur → modèle canonique.
+     * Le Core ne connaît jamais les noms de champs propriétaires.
+     *
+     * Format : provider_id => [champ_fournisseur => champ_canonique]
+     */
+    private const MAPS = [
+        'wialon' => [
+            'speed'     => 'speed_kmh',
+            'lat'       => 'latitude',
+            'lon'       => 'longitude',
+            'ts'        => 'timestamp',
+            'pos_alt'   => 'altitude_m',
+            'hdng'      => 'heading',
+            'fuel_lvl'  => 'fuel_level_pct',
+            'pos_dop'   => null,          // champ non mappé — ignoré
+        ],
+        'traccar' => [
+            'speed'      => 'speed_kmh',
+            'deviceTime' => 'timestamp',
+            'latitude'   => 'latitude',
+            'longitude'  => 'longitude',
+            'altitude'   => 'altitude_m',
+            'course'     => 'heading',
+            'fuel'       => 'fuel_level_pct',
+        ],
+        'teltonika' => [
+            'spd'     => 'speed_kmh',
+            'lat'     => 'latitude',
+            'lng'     => 'longitude',
+            'imei'    => 'device_id',
+            'ts'      => 'timestamp',
+            'alt'     => 'altitude_m',
+            'ang'     => 'heading',
+            'ign'     => 'ignition',
+            'fuel'    => 'fuel_level_pct',
+            'temp'    => 'temperature_celsius',
+        ],
+        'custom' => [
+            // Mapping identité — les champs arrivent déjà normalisés
+            'speed_kmh'           => 'speed_kmh',
+            'latitude'            => 'latitude',
+            'longitude'           => 'longitude',
+            'timestamp'           => 'timestamp',
+            'altitude_m'          => 'altitude_m',
+            'heading'             => 'heading',
+            'fuel_level_pct'      => 'fuel_level_pct',
+            'temperature_celsius' => 'temperature_celsius',
+            'ignition'            => 'ignition',
+            'device_id'           => 'device_id',
+            'event_type'          => 'event_type',
+        ],
+    ];
+
+    /**
+     * Retourne la map de normalisation pour un provider donné.
+     * Retourne le mapping 'custom' (identité) si le provider est inconnu.
+     */
+    public function getMap(string $providerId): array
+    {
+        return self::MAPS[$providerId] ?? self::MAPS['custom'];
+    }
+
+    /**
+     * Vérifie si un provider est supporté nativement.
+     */
+    public function isSupported(string $providerId): bool
+    {
+        return array_key_exists($providerId, self::MAPS);
+    }
+}
