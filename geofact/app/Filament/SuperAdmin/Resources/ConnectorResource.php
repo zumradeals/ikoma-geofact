@@ -1,0 +1,160 @@
+<?php
+
+namespace App\Filament\SuperAdmin\Resources;
+
+use App\Filament\SuperAdmin\Resources\ConnectorResource\Pages;
+use App\Models\Connector;
+use Filament\Forms;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class ConnectorResource extends Resource
+{
+    protected static ?string $model = Connector::class;
+    protected static ?int $navigationSort = 3;
+    protected static ?string $label = 'Connecteur';
+    protected static ?string $pluralLabel = 'Connecteurs';
+
+    public static function getNavigationIcon(): string { return 'heroicon-o-cpu-chip'; }
+    public static function getNavigationGroup(): ?string { return 'Gestion'; }
+
+    // La suppression physique est réservée à geofact_admin — désactivée ici par prudence
+    public static function canDelete(Model $record): bool { return false; }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->schema([
+            Forms\Components\Select::make('organization_id')
+                ->label('Organisation')
+                ->relationship('organization', 'name')
+                ->required()
+                ->searchable()
+                ->preload(),
+
+            Forms\Components\TextInput::make('provider_id')
+                ->label('Fournisseur GPS')
+                ->required()
+                ->maxLength(100),
+
+            Forms\Components\Select::make('connector_type')
+                ->label('Type')
+                ->options([
+                    'http_push'    => 'HTTP Push',
+                    'mqtt'         => 'MQTT',
+                    'websocket'    => 'WebSocket',
+                    'polling'      => 'Polling HTTP',
+                ])
+                ->required(),
+
+            Forms\Components\Select::make('status')
+                ->label('Statut')
+                ->options([
+                    'active'      => 'Actif',
+                    'inactive'    => 'Inactif',
+                    'suspended'   => 'Suspendu',
+                    'revoked'     => 'Révoqué',
+                ])
+                ->default('active')
+                ->required(),
+
+            Forms\Components\Placeholder::make('token_note')
+                ->label('')
+                ->content('Le token est généré automatiquement à la création. Il ne peut être consulté qu\'une seule fois.'),
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('provider_id')
+                    ->label('Fournisseur')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold'),
+
+                Tables\Columns\TextColumn::make('organization.name')
+                    ->label('Organisation')
+                    ->sortable()
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('connector_type')
+                    ->label('Type')
+                    ->badge(),
+
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Statut')
+                    ->badge()
+                    ->color(fn (string $state) => match ($state) {
+                        'active'    => 'success',
+                        'inactive'  => 'warning',
+                        'suspended' => 'warning',
+                        'revoked'   => 'danger',
+                        default     => 'gray',
+                    }),
+
+                Tables\Columns\TextColumn::make('last_sync_at')
+                    ->label('Dernière sync')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->placeholder('Jamais'),
+
+                Tables\Columns\TextColumn::make('certified_by')
+                    ->label('Certifié par')
+                    ->placeholder('—'),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Statut')
+                    ->options([
+                        'active'    => 'Actif',
+                        'inactive'  => 'Inactif',
+                        'suspended' => 'Suspendu',
+                        'revoked'   => 'Révoqué',
+                    ]),
+
+                Tables\Filters\SelectFilter::make('connector_type')
+                    ->label('Type')
+                    ->options([
+                        'http_push' => 'HTTP Push',
+                        'mqtt'      => 'MQTT',
+                        'websocket' => 'WebSocket',
+                        'polling'   => 'Polling HTTP',
+                    ]),
+
+                Tables\Filters\SelectFilter::make('organization_id')
+                    ->label('Organisation')
+                    ->relationship('organization', 'name'),
+            ])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
+
+                Tables\Actions\Action::make('revoke')
+                    ->label('Révoquer')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->visible(fn (Connector $record) => $record->status === 'active')
+                    ->action(fn (Connector $record) => $record->update([
+                        'status'          => 'revoked',
+                        'token_version'   => $record->token_version + 1,
+                    ])),
+            ])
+            ->bulkActions([]);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index'  => Pages\ListConnectors::route('/'),
+            'create' => Pages\CreateConnector::route('/create'),
+            'view'   => Pages\ViewConnector::route('/{record}'),
+            'edit'   => Pages\EditConnector::route('/{record}/edit'),
+        ];
+    }
+}
