@@ -4,6 +4,7 @@ namespace App\Filament\Org\Resources;
 
 use App\Filament\Org\Resources\TripResource\Pages;
 use App\Models\Trip;
+use Illuminate\Support\Facades\Auth;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -92,6 +93,15 @@ class TripResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\Action::make('replay')
+                    ->label('Replay')
+                    ->icon('heroicon-o-play')
+                    ->color('success')
+                    ->url(fn (Trip $record) => route('filament.org.pages.trip-replay', [
+                        'tenant' => auth()->user()?->organization_id,
+                        'trip'   => $record->id,
+                    ]))
+                    ->visible(fn (Trip $record) => in_array($record->status, ['completed', 'anomalous'])),
             ])
             ->bulkActions([]);
     }
