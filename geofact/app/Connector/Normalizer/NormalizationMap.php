@@ -12,15 +12,19 @@ class NormalizationMap
      * Format : provider_id => [champ_fournisseur => champ_canonique]
      */
     private const MAPS = [
+        // Mapping Wialon — les messages sont aplatis par WialonApiClient::flattenMessage()
+        // avant d'arriver ici (pos.y → latitude, pos.x → longitude, etc.)
         'wialon' => [
-            'speed'     => 'speed_kmh',
-            'lat'       => 'latitude',
-            'lon'       => 'longitude',
-            'ts'        => 'timestamp',
-            'pos_alt'   => 'altitude_m',
-            'hdng'      => 'heading',
-            'fuel_lvl'  => 'fuel_level_pct',
-            'pos_dop'   => null,          // champ non mappé — ignoré
+            'latitude'            => 'latitude',           // pos.y aplati par flattenMessage
+            'longitude'           => 'longitude',          // pos.x aplati par flattenMessage
+            'speed_kmh'           => 'speed_kmh',          // pos.s aplati par flattenMessage
+            'heading'             => 'heading',            // pos.c aplati par flattenMessage
+            'altitude_m'         => 'altitude_m',          // pos.z aplati par flattenMessage
+            'timestamp'           => 'timestamp',          // t aplati par flattenMessage
+            'fuel_level_pct'      => 'fuel_level_pct',     // p.can_fuel_litres aplati (si présent)
+            'temperature_celsius' => 'temperature_celsius',// p.engine_temp aplati (si présent)
+            'ignition'            => 'ignition',           // i aplati (bitfield — 1 = on)
+            'device_id'           => 'device_id',          // deviceId injecté par flattenMessage
         ],
         'traccar' => [
             'speed'      => 'speed_kmh',

@@ -54,3 +54,11 @@ Schedule::job(new EscalateUnacknowledgedAlerts())
     ->everyThirtyMinutes()
     ->name('delivery.escalate_unacknowledged')
     ->withoutOverlapping();
+
+// ── Connector Wialon — Synchronisation périodique (C-10) ──────────────────────
+// Fréquence : toutes les minutes (granularité maximale du Scheduler Laravel).
+// La config WIALON_SYNC_INTERVAL (secondes) est gérée dans WialonSyncJob.
+Schedule::job(new \App\Jobs\WialonSyncJob())
+    ->everyMinute()
+    ->name('connector.wialon.sync')
+    ->withoutOverlapping();
