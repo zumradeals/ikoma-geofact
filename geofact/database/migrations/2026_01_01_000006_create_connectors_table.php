@@ -13,13 +13,13 @@ return new class extends Migration
             $table->char('id', 36)->primary();
             $table->char('organization_id', 36);
             $table->string('provider_id', 60);
-            $table->enum('connector_type', ['CENTRAL', 'EDGE'])->default('CENTRAL');
+            $table->enum('connector_type', ['http_push', 'mqtt', 'websocket', 'polling'])->default('polling');
             $table->string('token_hash', 255);  // hash bcrypt du JWT
             $table->tinyInteger('token_version')->unsigned()->default(1);
-            $table->char('certified_by', 36);  // geofact_admin user_id
-            $table->dateTime('certified_at');
+            $table->char('certified_by', 36)->nullable();  // geofact_admin user_id
+            $table->dateTime('certified_at')->nullable();
             $table->enum('status', ['pending', 'active', 'suspended', 'revoked'])->default('pending');
-            $table->json('contract_versions');  // {"C-09":"v1.0","C-10":"v1.0"}
+            $table->json('contract_versions')->nullable();  // {"C-09":"v1.0","C-10":"v1.0"}
             $table->dateTime('last_sync_at')->nullable();
             $table->dateTime('created_at')->useCurrent();
             $table->dateTime('updated_at')->useCurrent()->useCurrentOnUpdate();
