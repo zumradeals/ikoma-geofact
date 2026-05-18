@@ -2,12 +2,16 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Org\Pages\OrgDashboard;
+use App\Filament\Org\Widgets\AlertsBySeverityChart;
+use App\Filament\Org\Widgets\DriverScoreChart;
+use App\Filament\Org\Widgets\StatsOverviewWidget;
+use App\Filament\Org\Widgets\VehicleActivityChart;
 use App\Models\Organization;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -18,6 +22,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Leandrocfe\FilamentApexCharts\FilamentApexChartsPlugin;
 
 class OrgPanelProvider extends PanelProvider
 {
@@ -34,11 +39,20 @@ class OrgPanelProvider extends PanelProvider
                 'secondary' => Color::hex('#f97316'),
             ])
             ->brandName('IKOMA GEOFACT')
+            ->plugins([
+                FilamentApexChartsPlugin::make(),
+            ])
             ->discoverResources(in: app_path('Filament/Org/Resources'), for: 'App\Filament\Org\Resources')
             ->discoverPages(in: app_path('Filament/Org/Pages'), for: 'App\Filament\Org\Pages')
             ->discoverWidgets(in: app_path('Filament/Org/Widgets'), for: 'App\Filament\Org\Widgets')
-            ->pages([Dashboard::class])
-            ->widgets([AccountWidget::class])
+            ->pages([OrgDashboard::class])
+            ->widgets([
+                AccountWidget::class,
+                StatsOverviewWidget::class,
+                VehicleActivityChart::class,
+                AlertsBySeverityChart::class,
+                DriverScoreChart::class,
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
