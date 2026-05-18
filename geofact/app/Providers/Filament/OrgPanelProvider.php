@@ -2,8 +2,10 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Org\Pages\EditOrgProfile;
 use App\Filament\Org\Pages\OrgDashboard;
 use App\Filament\Org\Widgets\AlertsBySeverityChart;
+use App\Filament\Org\Widgets\CriticalAlertsWidget;
 use App\Filament\Org\Widgets\DriverScoreChart;
 use App\Filament\Org\Widgets\StatsOverviewWidget;
 use App\Filament\Org\Widgets\VehicleActivityChart;
@@ -33,6 +35,7 @@ class OrgPanelProvider extends PanelProvider
             ->id('org')
             ->path('app')
             ->login()
+            ->profile(EditOrgProfile::class)
             ->tenant(Organization::class, slugAttribute: 'id')
             ->colors([
                 'primary'   => Color::hex('#1e3a5f'),
@@ -52,6 +55,7 @@ class OrgPanelProvider extends PanelProvider
                 VehicleActivityChart::class,
                 AlertsBySeverityChart::class,
                 DriverScoreChart::class,
+                CriticalAlertsWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,

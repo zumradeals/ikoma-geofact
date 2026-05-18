@@ -3,6 +3,7 @@
 namespace App\Filament\Org\Pages;
 
 use App\Filament\Org\Widgets\AlertsBySeverityChart;
+use App\Filament\Org\Widgets\CriticalAlertsWidget;
 use App\Filament\Org\Widgets\DriverScoreChart;
 use App\Filament\Org\Widgets\StatsOverviewWidget;
 use App\Filament\Org\Widgets\VehicleActivityChart;
@@ -30,6 +31,7 @@ class OrgDashboard extends Dashboard
             VehicleActivityChart::class,
             AlertsBySeverityChart::class,
             DriverScoreChart::class,
+            CriticalAlertsWidget::class,
         ];
     }
 }
