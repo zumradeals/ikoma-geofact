@@ -9,7 +9,7 @@
 
 ---
 
-## Récapitulatif des 19 Prompts
+## Récapitulatif des 20 Prompts
 
 | Prompt | Couche | Dépend de |
 |--------|--------|-----------|
@@ -33,6 +33,7 @@
 | P-17 | Panel Org — Trips & Carte | P-16 |
 | P-18 | Panel Org — KPI & Insights | P-17 |
 | P-19 | Panel Org — Settings & Connecteurs | P-18 |
+| P-20 | Déploiement cPanel o2switch & Production | P-19 |
 
 ---
 
@@ -1188,4 +1189,151 @@ RÈGLE ABSOLUE :
 
 ✅ Livrable : Rotation token génère un nouveau hash, token affiché une seule fois,
    CDP créée apparaît dans la liste et s'applique via ClientPoliciesEvaluator.
+
+---
+
+## PROMPT 20 — Déploiement cPanel o2switch & Configuration Production
+
+```
+Déployer IKOMA GEOFACT sur hébergement cPanel o2switch et configurer
+l'environnement de production.
+
+CONTEXTE :
+- Hébergement : o2switch cPanel (CloudLinux + PHP Selector)
+- PHP requis : 8.4 (MultiPHP Manager → sélectionner PHP 8.4 pour le domaine)
+- Base de données : MySQL 8.0 pré-créée dans cPanel → MySQL Databases
+- Stack : Laravel 13 / Filament v4 / tymon/jwt-auth
+
+═══════════════════════════════════════════════════════════
+ÉTAPE 1 — Structure des fichiers (OBLIGATOIRE)
+═══════════════════════════════════════════════════════════
+
+Le zip GitHub contient un dossier wrapper. Extraire le CONTENU de
+geofact/ directement dans le dossier du domaine :
+
+  base.ikomagroup.net/         ← Laravel root (artisan, composer.json…)
+  base.ikomagroup.net/public/  ← Document root cPanel pointe ICI
+
+Dans cPanel → Domaines → base.ikomagroup.net → Gérer :
+  Racine du document = base.ikomagroup.net/public
+
+═══════════════════════════════════════════════════════════
+ÉTAPE 2 — Installation via le Web Installer
+═══════════════════════════════════════════════════════════
+
+Accéder à : https://base.ikomagroup.net/install
+(PAS /public/install — si Chrome redirige, changer de navigateur)
+
+L'installeur (public/install/index.php) :
+1. Vérifie les prérequis (PHP 8.4, extensions, droits d'écriture)
+2. Teste la connexion MySQL
+3. Configure APP_URL, timezone, clés API optionnelles
+4. Crée le compte super admin (role=geofact_admin)
+5. Exécute php artisan migrate --force
+6. Écrit .env avec SESSION_DRIVER=file, CACHE_STORE=file
+7. Verrouille l'installeur (storage/installed)
+
+═══════════════════════════════════════════════════════════
+ÉTAPE 3 — Post-installation SSH (OBLIGATOIRE)
+═══════════════════════════════════════════════════════════
+
+cd ~/base.ikomagroup.net
+
+# 1. Générer le secret JWT (JAMAIS géré par l'installeur)
+php artisan jwt:secret
+
+# 2. Rebuilder le cache de configuration
+php artisan config:cache
+
+# 3. Créer les tables de queue (QUEUE_CONNECTION=database)
+php artisan queue:table
+php artisan queue:failed-table
+php artisan migrate --force
+
+# 4. Vider les caches
+php artisan view:clear
+php artisan route:cache
+
+═══════════════════════════════════════════════════════════
+ÉTAPE 4 — Tâches Cron cPanel (OBLIGATOIRE pour la production)
+═══════════════════════════════════════════════════════════
+
+Dans cPanel → Tâches Cron → Ajouter deux entrées :
+
+┌─────────────────────────────────────────────────────────┐
+│ Queue Worker (jobs asynchrones)                         │
+│ Fréquence : toutes les minutes (* * * * *)              │
+│ Commande :                                              │
+│   cd ~/base.ikomagroup.net && php artisan queue:work    │
+│   --stop-when-empty >> /dev/null 2>&1                   │
+├─────────────────────────────────────────────────────────┤
+│ Laravel Scheduler (KPIs différés, nettoyages)           │
+│ Fréquence : toutes les minutes (* * * * *)              │
+│ Commande :                                              │
+│   cd ~/base.ikomagroup.net && php artisan schedule:run  │
+│   >> /dev/null 2>&1                                     │
+└─────────────────────────────────────────────────────────┘
+
+IMPORTANT : Sur o2switch le PHP CLI est différent du PHP web.
+Si php artisan échoue, utiliser le chemin complet :
+  /opt/alt/php84/usr/bin/php artisan queue:work --stop-when-empty
+  /opt/alt/php84/usr/bin/php artisan schedule:run
+
+═══════════════════════════════════════════════════════════
+ÉTAPE 5 — Accès aux panels
+═══════════════════════════════════════════════════════════
+
+Panel SuperAdmin  : https://base.ikomagroup.net/admin
+  → Rôle requis   : geofact_admin (créé par l'installeur)
+
+Panel Organisation : https://base.ikomagroup.net/app/{uuid-org}/
+  → Rôle requis   : org_admin, fleet_admin, supervisor, driver
+  → L'UUID est dans /admin → Organisations
+  → Créer un org_admin depuis /admin → Utilisateurs
+
+API REST          : https://base.ikomagroup.net/api/v1/
+  → POST /api/v1/auth/login → retourne JWT Bearer token
+  → Toutes les routes API nécessitent Authorization: Bearer {token}
+
+═══════════════════════════════════════════════════════════
+CORRECTIFS FILAMENT v4 DOCUMENTÉS (découverts au déploiement)
+═══════════════════════════════════════════════════════════
+
+Ces points sont CRITIQUES pour toute session future :
+
+1. HasName obligatoire sur User :
+   User doit implémenter Filament\Models\Contracts\HasName
+   → FilamentManager::getUserName() n'appelle getFilamentName()
+     QUE si l'interface HasName est déclarée
+
+2. Tables\Actions\ inexistant en Filament v4 :
+   - Filament\Tables\Actions\ViewAction   → Filament\Actions\ViewAction
+   - Filament\Tables\Actions\EditAction   → Filament\Actions\EditAction
+   - Filament\Tables\Actions\DeleteAction → Filament\Actions\DeleteAction
+   - Filament\Tables\Actions\Action       → Filament\Actions\Action
+   (filament/tables/src/Actions/ ne contient que HeaderActionsPosition.php)
+
+3. Signature form() en Filament v4 :
+   - v3 : public function form(Form $form): Form
+   - v4 : public function form(Schema $schema): Schema
+   - Import : use Filament\Schemas\Schema (pas Filament\Forms\Form)
+   - HasForms + InteractsWithForms inutiles sur une Page en v4
+
+4. Tenant relationship obligatoire :
+   Tout modèle utilisé dans un Resource du panel Org DOIT avoir
+   une relation organization(): BelongsTo
+   → Filament BelongsToTenant la cherche par nom 'organization'
+
+5. SESSION_DRIVER=file sur cPanel :
+   Ne jamais utiliser SESSION_DRIVER=database sans avoir d'abord
+   exécuté php artisan session:table && php artisan migrate
+
+RÈGLES ABSOLUES :
+- Ne jamais deployer sans jwt:secret post-installation
+- Le document root DOIT pointer sur public/ — jamais sur la racine
+- Les deux crons (queue:work + schedule:run) sont requis pour les
+  alertes temps réel et les KPIs différés
+
+✅ Livrable : /admin/login, /app/{uuid}/ et /api/v1/health fonctionnels.
+   Crons actifs. JWT secret généré. Tables jobs/failed_jobs créées.
 ```

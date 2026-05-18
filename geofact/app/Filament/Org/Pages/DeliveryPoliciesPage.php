@@ -8,6 +8,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
@@ -70,7 +71,7 @@ class DeliveryPoliciesPage extends Page implements HasTable, HasForms
                     ->color(fn (string $state) => $state === 'active' ? 'success' : 'gray'),
             ])
             ->headerActions([
-                Tables\Actions\Action::make('create')
+                Action::make('create')
                     ->label('Ajouter une politique')
                     ->icon('heroicon-o-plus')
                     ->form([
@@ -120,7 +121,7 @@ class DeliveryPoliciesPage extends Page implements HasTable, HasForms
                     }),
             ])
             ->actions([
-                Tables\Actions\Action::make('toggle')
+                Action::make('toggle')
                     ->label(fn ($record) => $record->status === 'active' ? 'Désactiver' : 'Activer')
                     ->icon(fn ($record) => $record->status === 'active' ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
                     ->color(fn ($record) => $record->status === 'active' ? 'warning' : 'success')
@@ -134,7 +135,7 @@ class DeliveryPoliciesPage extends Page implements HasTable, HasForms
                         Notification::make()->title('Statut mis à jour')->success()->send();
                     }),
 
-                Tables\Actions\Action::make('delete')
+                Action::make('delete')
                     ->label('Supprimer')
                     ->icon('heroicon-o-trash')
                     ->color('danger')

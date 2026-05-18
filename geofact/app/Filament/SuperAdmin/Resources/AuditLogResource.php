@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Table;
 
 class AuditLogResource extends Resource
@@ -103,7 +104,7 @@ class AuditLogResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                ViewAction::make(),
             ])
             ->bulkActions([]);
     }

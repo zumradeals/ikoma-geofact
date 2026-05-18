@@ -8,6 +8,9 @@ use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -131,10 +134,10 @@ class ConnectorResource extends Resource
                     ->relationship('organization', 'name'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                ViewAction::make(),
+                EditAction::make(),
 
-                Tables\Actions\Action::make('revoke')
+                Action::make('revoke')
                     ->label('Révoquer')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')

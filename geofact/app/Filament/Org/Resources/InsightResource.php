@@ -9,6 +9,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -102,8 +104,8 @@ class InsightResource extends Resource
                     ->options(['high' => 'Haute', 'medium' => 'Moyenne', 'low' => 'Faible']),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\Action::make('generate')
+                ViewAction::make(),
+                Action::make('generate')
                     ->label('Générer')
                     ->icon('heroicon-o-sparkles')
                     ->color('warning')

@@ -8,6 +8,9 @@ use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 
@@ -139,10 +142,10 @@ class OrganizationResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                ViewAction::make(),
+                EditAction::make(),
 
-                Tables\Actions\Action::make('suspend')
+                Action::make('suspend')
                     ->label('Suspendre')
                     ->icon('heroicon-o-pause-circle')
                     ->color('warning')
@@ -150,7 +153,7 @@ class OrganizationResource extends Resource
                     ->visible(fn (Organization $record) => $record->status === 'active')
                     ->action(fn (Organization $record) => $record->update(['status' => 'suspended'])),
 
-                Tables\Actions\Action::make('activate')
+                Action::make('activate')
                     ->label('Activer')
                     ->icon('heroicon-o-play-circle')
                     ->color('success')

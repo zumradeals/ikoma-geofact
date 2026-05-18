@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -92,8 +94,8 @@ class TripResource extends Resource
                     ->query(fn ($query) => $query->whereIn('status', ['active', 'paused'])),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\Action::make('replay')
+                ViewAction::make(),
+                Action::make('replay')
                     ->label('Replay')
                     ->icon('heroicon-o-play')
                     ->color('success')

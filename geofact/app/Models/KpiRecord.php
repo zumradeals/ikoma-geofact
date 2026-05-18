@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Exceptions\ContractViolationException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class KpiRecord extends Model
 {
@@ -38,6 +39,11 @@ class KpiRecord extends Model
         'computed_at' => 'datetime',
         'value'       => 'decimal:4',
     ];
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
+    }
 
     protected static function boot(): void
     {

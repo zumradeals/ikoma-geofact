@@ -4,6 +4,7 @@ namespace App\Filament\Org\Widgets;
 
 use App\Models\Alert;
 use Filament\Tables;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
@@ -66,7 +67,7 @@ class CriticalAlertsWidget extends BaseWidget
                     ->since(),
             ])
             ->actions([
-                Tables\Actions\Action::make('view')
+                Action::make('view')
                     ->label('Voir')
                     ->icon('heroicon-o-eye')
                     ->url(fn (Alert $record) => route('filament.org.resources.alerts.view', [

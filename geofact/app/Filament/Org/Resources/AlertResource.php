@@ -10,6 +10,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -128,9 +130,9 @@ class AlertResource extends Resource
                     ->default(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                ViewAction::make(),
 
-                Tables\Actions\Action::make('acknowledge')
+                Action::make('acknowledge')
                     ->label('Prendre en compte')
                     ->icon('heroicon-o-check')
                     ->color('info')
@@ -143,7 +145,7 @@ class AlertResource extends Resource
                         Notification::make()->title('Alerte prise en compte.')->success()->send();
                     }),
 
-                Tables\Actions\Action::make('resolve')
+                Action::make('resolve')
                     ->label('Résoudre')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')

@@ -7,6 +7,7 @@ use App\Models\KpiRecord;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -123,7 +124,7 @@ class KpiRecordResource extends Resource
                     ->options(['RT' => 'Temps réel', 'DF' => 'Différé']),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                ViewAction::make(),
             ])
             ->bulkActions([]);
     }
