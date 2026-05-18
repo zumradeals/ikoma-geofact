@@ -327,8 +327,8 @@ function doInstall(): void {
         'DB_USERNAME'           => $db['user'] ?: '',
         'DB_PASSWORD'           => $db['pass'] ?: '',
         'QUEUE_CONNECTION'      => 'database',
-        'CACHE_STORE'           => 'database',
-        'SESSION_DRIVER'        => 'database',
+        'CACHE_STORE'           => 'file',
+        'SESSION_DRIVER'        => 'file',
     ];
 
     if (!empty($app['anthropic_key'])) {
@@ -418,7 +418,7 @@ function doInstall(): void {
     $locked = file_put_contents(INSTALLER_LOCK, $lockContent) !== false;
     $steps[] = ['label' => 'Locking installer', 'ok' => $locked, 'output' => $locked ? 'Lock file created.' : 'Warning: could not create lock file.'];
 
-    echo json_encode(['ok' => true, 'steps' => $steps, 'app_url' => $appUrl ?? '', 'admin_email' => $admin['email'] ?? '']);
+    echo json_encode(['ok' => true, 'steps' => $steps, 'app_url' => $appUrl ?? '', 'admin_email' => $adm['email'] ?? '']);
 }
 
 // ─── Helper: h() ─────────────────────────────────────────────────────────────
