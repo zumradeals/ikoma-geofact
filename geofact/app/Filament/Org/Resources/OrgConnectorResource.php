@@ -8,6 +8,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -80,7 +81,7 @@ class OrgConnectorResource extends Resource
                     ->placeholder('—'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                ViewAction::make(),
                 Tables\Actions\Action::make('rotate_token')
                     ->label('Rotation token')
                     ->icon('heroicon-o-arrow-path')

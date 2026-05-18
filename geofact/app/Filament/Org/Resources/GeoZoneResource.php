@@ -10,6 +10,10 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
@@ -159,8 +163,8 @@ class GeoZoneResource extends Resource
                     ->options(['active' => 'Active', 'inactive' => 'Inactive']),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                ViewAction::make(),
+                EditAction::make(),
                 Tables\Actions\Action::make('toggle')
                     ->label(fn (GeoZone $record) => $record->status === 'active' ? 'Désactiver' : 'Activer')
                     ->icon(fn (GeoZone $record) => $record->status === 'active' ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
@@ -177,8 +181,8 @@ class GeoZoneResource extends Resource
                     }),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
