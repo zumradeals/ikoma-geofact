@@ -5,6 +5,8 @@ namespace App\Filament\SuperAdmin\Resources;
 use App\Filament\SuperAdmin\Resources\ConnectorResource\Pages;
 use App\Models\Connector;
 use Filament\Forms;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -67,6 +69,26 @@ class ConnectorResource extends Resource
             Forms\Components\Placeholder::make('token_note')
                 ->label('')
                 ->content('Le token est généré automatiquement à la création. Il ne peut être consulté qu\'une seule fois.'),
+        ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\TextEntry::make('organization.name')->label('Organisation'),
+            Infolists\Components\TextEntry::make('provider_id')->label('Fournisseur GPS'),
+            Infolists\Components\TextEntry::make('connector_type')->label('Type')->badge(),
+            Infolists\Components\TextEntry::make('status')->label('Statut')->badge()
+                ->color(fn (string $state) => match ($state) {
+                    'active'    => 'success',
+                    'suspended' => 'warning',
+                    'revoked'   => 'danger',
+                    default     => 'gray',
+                }),
+            Infolists\Components\TextEntry::make('certified_by')->label('Certifié par')->placeholder('—'),
+            Infolists\Components\TextEntry::make('certified_at')->label('Certifié le')->dateTime('d/m/Y H:i')->placeholder('—'),
+            Infolists\Components\TextEntry::make('last_sync_at')->label('Dernière sync')->dateTime('d/m/Y H:i')->placeholder('Jamais'),
+            Infolists\Components\TextEntry::make('token_version')->label('Version token'),
         ]);
     }
 

@@ -1,13 +1,17 @@
 <?php
+
 namespace App\Filament\SuperAdmin\Resources\ConnectorResource\Pages;
+
 use App\Filament\SuperAdmin\Resources\ConnectorResource;
-use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-class CreateConnector extends CreateRecord {
+
+class CreateConnector extends CreateRecord
+{
     protected static string $resource = ConnectorResource::class;
-    
+
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $raw = Str::random(64);
@@ -22,5 +26,16 @@ class CreateConnector extends CreateRecord {
         session(['connector_token_' . $data['id'] => $raw]);
 
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        $id  = $this->record->id;
+        $raw = session()->pull('connector_token_' . $id);
+
+        if ($raw) {
+            // Store for the redirect target (ViewConnector) to display
+            session(['connector_token_show_' . $id => $raw]);
+        }
     }
 }
