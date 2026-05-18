@@ -2,6 +2,7 @@
 
 namespace App\Filament\Org\Pages;
 
+use App\Models\GeoZone;
 use App\Models\TelemetryEvent;
 use App\Models\Vehicle;
 use Filament\Pages\Page;
@@ -79,11 +80,23 @@ class VehicleMapPage extends Page
         $withPos    = $vehicles->where('has_pos', true)->count();
         $withoutPos = $vehicles->where('has_pos', false)->count();
 
+        // Géozones actives de l'org pour overlay
+        $geozones = GeoZone::where('organization_id', $orgId)
+            ->where('status', 'active')
+            ->get(['id', 'name', 'zone_type', 'geometry'])
+            ->map(fn ($z) => [
+                'name'     => $z->name,
+                'type'     => $z->zone_type,
+                'geometry' => is_array($z->geometry) ? $z->geometry : json_decode($z->geometry, true),
+            ])
+            ->values();
+
         return [
-            'vehicles'    => $vehicles,
-            'withPos'     => $withPos,
-            'withoutPos'  => $withoutPos,
+            'vehicles'     => $vehicles,
+            'withPos'      => $withPos,
+            'withoutPos'   => $withoutPos,
             'vehiclesJson' => $vehicles->where('has_pos', true)->values()->toJson(),
+            'geoZonesJson' => $geozones->toJson(),
         ];
     }
 }
