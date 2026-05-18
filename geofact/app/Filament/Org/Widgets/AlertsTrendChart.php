@@ -15,7 +15,7 @@ class AlertsTrendChart extends ApexChartWidget
     protected static ?int $sort = 6;
     protected static ?int $contentHeight = 280;
     protected int|string|array $columnSpan = 2;
-    protected static ?string $pollingInterval = '20s';
+    protected ?string $pollingInterval = '20s';
 
     protected function getOptions(): array
     {
