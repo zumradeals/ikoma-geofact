@@ -1,0 +1,106 @@
+<?php
+
+namespace App\Filament\Org\Resources;
+
+use App\Filament\Org\Resources\TripResource\Pages;
+use App\Models\Trip;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+
+class TripResource extends Resource
+{
+    protected static ?string $model = Trip::class;
+    protected static ?int $navigationSort = 2;
+    protected static ?string $label = 'Trajet';
+    protected static ?string $pluralLabel = 'Trajets';
+
+    public static function getNavigationGroup(): ?string { return 'Sécurité'; }
+    public static function getNavigationIcon(): string { return 'heroicon-o-map'; }
+
+    // Trajets gérés par l'API uniquement — lecture seule dans le dashboard
+    public static function canCreate(): bool { return false; }
+    public static function canEdit(Model $record): bool { return false; }
+    public static function canDelete(Model $record): bool { return false; }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->schema([]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->defaultSort('started_at', 'desc')
+            ->columns([
+                Tables\Columns\TextColumn::make('vehicle.plate')
+                    ->label('Véhicule')
+                    ->sortable()
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('driver.last_name')
+                    ->label('Conducteur')
+                    ->formatStateUsing(fn (?string $state, Trip $record) =>
+                        $record->driver ? "{$record->driver->first_name} {$state}" : '—'
+                    )
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Statut')
+                    ->badge()
+                    ->color(fn (string $state) => match ($state) {
+                        'active'    => 'success',
+                        'paused'    => 'warning',
+                        'anomalous' => 'danger',
+                        default     => 'gray',
+                    }),
+
+                Tables\Columns\TextColumn::make('started_at')
+                    ->label('Début')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('ended_at')
+                    ->label('Fin')
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder('En cours'),
+
+                Tables\Columns\TextColumn::make('duration_minutes')
+                    ->label('Durée')
+                    ->formatStateUsing(fn (?int $state) => $state ? "{$state} min" : '—'),
+
+                Tables\Columns\TextColumn::make('distance_km')
+                    ->label('Distance')
+                    ->formatStateUsing(fn (?string $state) => $state ? number_format((float) $state, 1) . ' km' : '—'),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Statut')
+                    ->options([
+                        'active'    => 'En cours',
+                        'paused'    => 'En pause',
+                        'completed' => 'Terminé',
+                        'anomalous' => 'Anomalie',
+                        'cancelled' => 'Annulé',
+                    ]),
+
+                Tables\Filters\Filter::make('active_only')
+                    ->label('Trajets actifs')
+                    ->query(fn ($query) => $query->whereIn('status', ['active', 'paused'])),
+            ])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+            ])
+            ->bulkActions([]);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListTrips::route('/'),
+            'view'  => Pages\ViewTrip::route('/{record}'),
+        ];
+    }
+}
