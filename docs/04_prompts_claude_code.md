@@ -9,7 +9,7 @@
 
 ---
 
-## Récapitulatif des 12 Prompts
+## Récapitulatif des 19 Prompts
 
 | Prompt | Couche | Dépend de |
 |--------|--------|-----------|
@@ -26,6 +26,13 @@
 | P-10 | Delivery Engine | P-09 |
 | P-11 | Controllers API et Routes | P-10 |
 | P-12 | Tests et Validation finale | P-11 |
+| P-13 | Fondations Filament + Thème IKOMA | P-12 |
+| P-14 | Panel Super Admin | P-13 |
+| P-15 | Panel Org — Fleet Management | P-14 |
+| P-16 | Panel Org — Alert Center | P-15 |
+| P-17 | Panel Org — Trips & Carte | P-16 |
+| P-18 | Panel Org — KPI & Insights | P-17 |
+| P-19 | Panel Org — Settings & Connecteurs | P-18 |
 
 ---
 
@@ -816,4 +823,369 @@ RÈGLE ABSOLUE :
 - Les tests d'isolation multi-tenant sont obligatoires avant tout déploiement
 - Un test qui échoue = un contrat violé
   → corriger le code, jamais le test
+```
+
+---
+
+## PROMPT 13 — Fondations Filament + Thème IKOMA
+
+```
+Tu vas installer et configurer Filament PHP v4 pour IKOMA GEOFACT.
+
+CONTEXTE :
+- Stack : PHP 8.2+ / Laravel 13 / Filament v4.11.3
+- Deux panels distincts : SuperAdmin (/admin) et Org (/app/{tenant:id})
+- Thème IKOMA : primary #1e3a5f, secondary #f97316
+- Les charts utilisent leandrocfe/filament-apex-charts v5
+
+INSTRUCTIONS :
+1. Installer les packages :
+   composer require filament/filament:"^4.0" leandrocfe/filament-apex-charts:"^5.0"
+
+2. Créer app/Providers/Filament/SuperAdminPanelProvider.php :
+   - id('superadmin'), path('admin'), login()
+   - Accès : role = 'geofact_admin' ET status = 'active'
+   - brandName('IKOMA GEOFACT — Admin')
+   - Plugin FilamentApexChartsPlugin::make()
+
+3. Créer app/Providers/Filament/OrgPanelProvider.php :
+   - id('org'), path('app'), login(), default()
+   - tenant(Organization::class, slugAttribute: 'id')
+   - profile(EditOrgProfile::class)
+   - brandName('IKOMA GEOFACT')
+
+4. Mettre à jour app/Models/User.php :
+   - Implémenter FilamentUser + HasTenants
+   - canAccessPanel() : vérifie role + status
+   - getTenants() : retourne l'org de l'user
+   - canAccessTenant() : vérifie organization_id
+   - getAuthPassword() : retourne $this->password_hash (DC-14)
+
+5. Créer app/Filament/Org/Pages/EditOrgProfile.php :
+   - Étendre EditProfile
+   - getNameFormComponent() → champ 'first_name' (pas 'name')
+   - handleRecordUpdate() → hash vers 'password_hash' (pas 'password')
+   - mutateFormDataBeforeFill() → exclure password_hash
+
+6. Créer app/Facades/GeofactPermissions.php :
+   - Facade wrappant RolePermissionMatrix::class
+
+RÈGLES FILAMENT v4 (différences vs v3 — ne jamais violer) :
+- Propriétés de navigation : toujours des MÉTHODES
+  → getNavigationIcon(): string (jamais protected static ?string $navigationIcon)
+  → getNavigationGroup(): ?string (jamais protected static ?string $navigationGroup)
+- Signature form() : form(Schema $schema): Schema
+  → use Filament\Schemas\Schema (pas Filament\Forms\Form)
+- Type retour composant : Filament\Schemas\Components\Component
+- getColumns() : int|array uniquement (pas int|string|array)
+- BadgeColumn supprimé → TextColumn->badge()->color()
+
+✅ Livrable : /admin/login et /app/login accessibles, thème appliqué,
+   un geofact_admin bloqué sur /app/, un org_admin bloqué sur /admin/.
+```
+
+---
+
+## PROMPT 14 — Panel Super Admin
+
+```
+Tu vas créer l'interface complète de gestion plateforme pour le panel SuperAdmin.
+
+CONTEXTE :
+- Panel /admin accessible uniquement aux geofact_admin
+- Toutes les resources sont scopées globalement (pas de filtre tenant)
+- AuditLog est immuable : 0 create/edit/delete
+
+INSTRUCTIONS :
+1. Créer app/Filament/SuperAdmin/Resources/OrganizationResource.php :
+   - CRUD complet + actions Suspendre/Activer
+   - Colonnes : name, country_code, timezone, status, fleets_count, vehicles_count
+   - Groupe navigation : 'Gestion'
+
+2. Créer app/Filament/SuperAdmin/Resources/UserResource.php :
+   - CRUD + champ password_hash avec dehydrateStateUsing(Hash::make)
+   - dehydrated(fn($s) => filled($s)) pour ne hasher que si rempli
+   - Groupe navigation : 'Gestion'
+
+3. Créer app/Filament/SuperAdmin/Resources/ConnectorResource.php :
+   - Lecture seule + action 'Révoquer' (status→revoked, token_version++)
+   - token_hash exclu de l'affichage (hidden)
+   - Groupe navigation : 'Gestion'
+
+4. Créer app/Filament/SuperAdmin/Resources/AuditLogResource.php :
+   - canCreate/canEdit/canDelete → false (DC-15 immuable)
+   - Filtres : actor_role, result
+   - Groupe navigation : 'Sécurité'
+
+5. Créer app/Filament/SuperAdmin/Pages/SuperAdminDashboard.php :
+   - Widgets : GlobalStatsWidget, OrgsActivityChart
+
+6. Créer app/Filament/SuperAdmin/Pages/PlatformHealthPage.php :
+   - Checks : DB, jobs en attente, jobs échoués, connecteurs silencieux >24h
+   - Groupe navigation : 'Système'
+   - Vue Blade avec indicateurs visuels vert/rouge
+
+7. Créer les widgets :
+   GlobalStatsWidget : total orgs actives, véhicules, connecteurs, alertes ouvertes
+   OrgsActivityChart : activité organisations (ApexCharts bar)
+
+✅ Livrable : Action "Suspendre org" fonctionnelle, AuditLog sans bouton
+   edit/delete, PlatformHealthPage affiche l'état des connecteurs.
+```
+
+---
+
+## PROMPT 15 — Panel Org : Fleet Management
+
+```
+Tu vas créer les resources de gestion de flotte pour le panel Organisation.
+
+CONTEXTE :
+- Toutes les resources sont scopées au tenant via getEloquentQuery()
+  → WHERE organization_id = Auth::user()->organization_id
+- Jamais de filtre tenant dans les Controllers ou les models
+- GeoZone : modifier geometry sur zone active → version++ (DC-08)
+
+INSTRUCTIONS :
+1. Créer app/Filament/Org/Resources/FleetResource.php :
+   - CRUD complet, groupe 'Flotte', navigationSort = 1
+   - Actions : toggle status actif/inactif
+
+2. Créer app/Filament/Org/Resources/VehicleResource.php :
+   - CRUD + action Transfer (DC-16 : historical_data_policy obligatoire)
+   - Badge statut coloré, relation fleet
+
+3. Créer app/Filament/Org/Resources/DriverResource.php :
+   - CRUD conducteurs, scopé au tenant
+   - Champ license_number, license_type
+
+4. Créer app/Filament/Org/Resources/GeoZoneResource.php :
+   - CRUD + action toggle actif/inactif
+   - Champ geometry en Textarea JSON
+   - Section "Aperçu carte" visible uniquement en mode view :
+     → composant Blade geozone-map-preview.blade.php
+     → Leaflet.js : cercle / polygone / rectangle selon geometry.type
+   - mutateFormDataBeforeCreate : injecter organization_id + UUID + version=1
+
+5. Créer le composant resources/views/filament/org/components/geozone-map-preview.blade.php :
+   - Leaflet.js + OpenStreetMap, hauteur 350px
+   - Cercle : L.circle(center, {radius})
+   - Polygone : L.polygon(coordinates)
+   - Rectangle : L.rectangle(bounds)
+   - Couleurs IKOMA : border #1e3a5f, fill #f97316 opacity 0.25
+
+RÈGLE ABSOLUE :
+- getEloquentQuery() sur chaque Resource — jamais de scope global dans le modèle
+- UUID généré côté PHP dans mutateFormDataBeforeCreate
+
+✅ Livrable : Modifier geometry d'une géozone active → version incrémentée,
+   aperçu Leaflet visible dans le formulaire view.
+```
+
+---
+
+## PROMPT 16 — Panel Org : Alert Center
+
+```
+Tu vas créer le centre de supervision des alertes pour le panel Organisation.
+
+CONTEXTE :
+- C-13 : création et suppression physique des alertes interdites
+- DC-09 : resolution_note obligatoire pour status=resolved
+- Les alertes critiques doivent être visibles en temps réel (polling 20s)
+
+INSTRUCTIONS :
+1. Créer app/Filament/Org/Resources/AlertResource.php :
+   - canCreate() → false, canDelete() → false
+   - Action 'Résoudre' : form avec Textarea resolution_note required
+   - Action 'Acquitter' : status→acknowledged
+   - Groupe navigation : 'Sécurité'
+   - Pages : ListAlerts (sans CreateAction), ViewAlert
+
+2. Créer app/Filament/Org/Widgets/CriticalAlertsWidget.php :
+   - Étendre TableWidget
+   - canView() : vérifie existence alertes CRITICAL non résolues
+   - pollingInterval = '20s'
+   - columnSpan = 'full'
+
+3. Créer app/Filament/Org/Widgets/AlertsBySeverityChart.php :
+   - ApexCharts donut par sévérité (alertes non résolues)
+   - Couleurs : LOW=#6b7280, MEDIUM=#f59e0b, HIGH=#ef4444, CRITICAL=#7f1d1d
+
+4. Créer app/Filament/Org/Widgets/AlertsTrendChart.php :
+   - ApexCharts barres empilées, 7 derniers jours, par sévérité
+   - Compatible SQLite (strftime) et MySQL (DATE())
+   - pollingInterval non-static (parent ApexChartWidget non-static)
+   - columnSpan = 2
+
+5. Créer app/Filament/Org/Pages/OrgDashboard.php :
+   - Étendre Dashboard, getColumns() : int|array (pas string)
+   - Lister tous les widgets dans getWidgets()
+
+RÈGLE ABSOLUE :
+- pollingInterval dans les widgets ApexChart : protected ?string (non-static)
+  car ApexChartWidget parent déclare la propriété non-static
+
+✅ Livrable : Resolve sans note → erreur bloquante, CriticalAlertsWidget
+   se rafraîchit toutes les 20s, graphique tendance 7j visible.
+```
+
+---
+
+## PROMPT 17 — Panel Org : Trips & Carte
+
+```
+Tu vas créer la visualisation cartographique et l'historique des trajets.
+
+CONTEXTE :
+- La carte véhicules se rafraîchit toutes les 30s (Livewire wire:poll)
+- Les géozones actives sont affichées en overlay
+- TripReplayPage : animation pas-à-pas des points GPS d'un trajet
+- TripResource : lecture seule (les trajets sont gérés par l'API)
+
+INSTRUCTIONS :
+1. Mettre à jour app/Filament/Org/Pages/VehicleMapPage.php :
+   - Ajouter récupération des GeoZones actives de l'org
+   - Retourner geoZonesJson dans getViewData()
+
+2. Mettre à jour resources/views/filament/org/pages/vehicle-map.blade.php :
+   - Ajouter <div wire:poll.30000ms="$refresh"> pour polling 30s
+   - Overlay géozones : L.circle / L.polygon / L.rectangle en bleu #1e3a5f
+   - Gérer la persistance de la carte Leaflet (window._ikomaMap) :
+     → Si carte déjà initialisée : supprimer anciens marqueurs, en ajouter de nouveaux
+     → Si nouvelle : créer la carte + overlay géozones (une seule fois)
+
+3. Créer app/Filament/Org/Resources/TripResource.php :
+   - canCreate/canEdit/canDelete → false (gestion par API uniquement)
+   - Filtres : status, active_only
+   - Action 'Replay' : visible si status IN [completed, anomalous]
+     → URL vers route filament.org.pages.trip-replay
+
+4. Créer app/Filament/Org/Pages/TripReplayPage.php :
+   - shouldRegisterNavigation = false (page cachée, accès via TripResource)
+   - mount(string $trip) : vérifier tenant (abort_unless organization_id match)
+   - getViewData() : points GPS du trip ordonnés par ts
+
+5. Créer resources/views/filament/org/pages/trip-replay.blade.php :
+   - Polyline complète grisée (#9ca3af) affichée immédiatement
+   - Polyline de replay orange (#f97316) animée pas-à-pas
+   - Marqueur SVG orienté, marqueurs départ (vert) / arrivée (rouge)
+   - Contrôles : play/pause/reset, vitesse ×1/×2/×4/×8
+   - Compteur de points courant / total
+
+RÈGLE ABSOLUE :
+- TripReplayPage vérifie le tenant avant tout accès aux données
+- La carte Leaflet n'est initialisée qu'une seule fois (window._ikomaMap)
+
+✅ Livrable : Carte se rafraîchit toutes les 30s, géozones en overlay,
+   replay trajet anime la polyline pas-à-pas avec contrôles vitesse.
+```
+
+---
+
+## PROMPT 18 — Panel Org : KPI & Insights
+
+```
+Tu vas créer l'interface analytique KPI et Insights IA.
+
+CONTEXTE :
+- DC-12 : KpiRecord immuable — 0 create/edit/delete
+- InsightEngine appelle l'API Anthropic (claude-sonnet-4-20250514)
+- DriverScoreboardPage : classement 30 jours basé sur KPIs DF
+
+INSTRUCTIONS :
+1. Créer app/Filament/Org/Resources/KpiRecordResource.php :
+   - canCreate/canEdit/canDelete/canDeleteAny → false (DC-12)
+   - Filtres : kpi_type, scope_type, mode (RT/DF)
+   - Groupe navigation : 'Analytique', navigationSort = 1
+
+2. Créer app/Filament/Org/Resources/InsightResource.php :
+   - canCreate/canEdit/canDelete → false
+   - Action 'Générer' : appelle InsightEngine::generate() pour scope+période 7j
+     → Notification success si insight généré, warning si IA indisponible
+   - Groupe navigation : 'Analytique', navigationSort = 2
+
+3. Créer app/Filament/Org/Pages/DriverScoreboardPage.php :
+   - Récupère derniers KPIs driver_score DF des 30 derniers jours
+   - Trie par valeur décroissante
+   - getViewData() : joint les données Driver (first_name, last_name, license_number)
+   - Groupe navigation : 'Analytique', navigationSort = 3
+
+4. Créer resources/views/filament/org/pages/driver-scoreboard.blade.php :
+   - Tableau avec médailles 🥇🥈🥉 pour le top 3
+   - Barre de progression colorée : vert ≥80, orange ≥60, rouge <60
+   - Message si aucun score calculé
+
+5. Créer app/Filament/Org/Widgets/FleetUtilizationWidget.php :
+   - Étendre ApexChartWidget
+   - Type radialBar, valeur = dernier KPI fleet_utilization scope=organization
+   - Dégradé orange (#f97316) → bleu (#1e3a5f)
+   - Ajouter au dashboard et au OrgPanelProvider
+
+RÈGLE ABSOLUE :
+- KpiRecordResource : aucun bouton create/edit/delete visible
+- InsightEngine retourne null si IA indisponible — jamais d'exception
+
+✅ Livrable : KpiRecord sans bouton edit (DC-12), gauge affiche le bon
+   pourcentage, action Générer déclenche le pipeline IA.
+```
+
+---
+
+## PROMPT 19 — Panel Org : Settings & Connecteurs
+
+```
+Tu vas créer les pages d'administration de l'organisation.
+
+CONTEXTE :
+- OrgSettingsPage : seul le nom, timezone et pays sont modifiables
+- OrgConnectorResource : rotation token → nouveau hash bcrypt + token_version++
+- DeliveryPoliciesPage : gestion des CDP (Client Distribution Policies)
+- Les SP (System Policies) sont hard-codées et non modifiables depuis l'UI
+
+INSTRUCTIONS :
+1. Créer app/Filament/Org/Pages/OrgSettingsPage.php :
+   - Implémenter HasForms + InteractsWithForms
+   - form(Form $form) : champs name, timezone (select), country_code (select)
+   - mount() : fill depuis Organization::find(auth()->user()->organization_id)
+   - save() : update org avec les données du formulaire
+   - Vue Blade avec bouton "Enregistrer"
+
+2. Créer app/Filament/Org/Resources/OrgConnectorResource.php :
+   - Scopé au tenant (getEloquentQuery WHERE organization_id)
+   - canCreate/canEdit/canDelete → false
+   - Action 'Rotation token' (visible si status=active) :
+     → Génère Str::random(64) comme nouveau token en clair
+     → bcrypt() → token_hash
+     → token_version + 1
+     → Notification::make()->persistent() affiche le token en clair UNE SEULE FOIS
+
+3. Créer app/Models/DeliveryPolicy.php :
+   - UUID, fillable complet, cast channels en array
+   - Relation belongsTo(Organization)
+
+4. Créer migration 2026_01_01_000017_create_delivery_policies_table.php :
+   - Colonnes : id (CHAR36), organization_id, event_type_filter, min_severity (ENUM),
+     channels (JSON), recipient_email, recipient_phone, recipient_webhook_url,
+     status (ENUM active/inactive), timestamps
+   - FK organization_id → organizations ON DELETE CASCADE
+
+5. Créer app/Filament/Org/Pages/DeliveryPoliciesPage.php :
+   - Implémenter HasTable + HasForms
+   - table() : query sur DeliveryPolicy WHERE organization_id
+   - headerActions : formulaire de création avec event_type_filter, min_severity,
+     channels (CheckboxList), recipient_email, recipient_phone, recipient_webhook_url
+   - Actions par ligne : toggle actif/inactif, supprimer
+
+6. Créer resources/views/filament/org/pages/delivery-policies.blade.php :
+   - Bannière rappelant que les SP système sont non désactivables
+   - {{ $this->table }}
+
+RÈGLE ABSOLUE :
+- Le nouveau token de rotation n'est jamais stocké en clair — uniquement bcrypt
+- La notification affichant le token doit être persistent() pour que l'user le copie
+- Les SP (SystemPoliciesEvaluator) ne sont jamais listées dans cette page
+
+✅ Livrable : Rotation token génère un nouveau hash, token affiché une seule fois,
+   CDP créée apparaît dans la liste et s'applique via ClientPoliciesEvaluator.
 ```
