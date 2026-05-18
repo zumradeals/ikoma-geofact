@@ -10,6 +10,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -156,7 +157,7 @@ class UserResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
 
-                Tables\Actions\Action::make('suspend')
+                Action::make('suspend')
                     ->label('Suspendre')
                     ->icon('heroicon-o-no-symbol')
                     ->color('danger')

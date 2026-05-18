@@ -14,6 +14,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
@@ -165,7 +166,7 @@ class GeoZoneResource extends Resource
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
-                Tables\Actions\Action::make('toggle')
+                Action::make('toggle')
                     ->label(fn (GeoZone $record) => $record->status === 'active' ? 'Désactiver' : 'Activer')
                     ->icon(fn (GeoZone $record) => $record->status === 'active' ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
                     ->color(fn (GeoZone $record) => $record->status === 'active' ? 'warning' : 'success')

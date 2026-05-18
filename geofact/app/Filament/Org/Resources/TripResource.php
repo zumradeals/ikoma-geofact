@@ -9,6 +9,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -94,7 +95,7 @@ class TripResource extends Resource
             ])
             ->actions([
                 ViewAction::make(),
-                Tables\Actions\Action::make('replay')
+                Action::make('replay')
                     ->label('Replay')
                     ->icon('heroicon-o-play')
                     ->color('success')

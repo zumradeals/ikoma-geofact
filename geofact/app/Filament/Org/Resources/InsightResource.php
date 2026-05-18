@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -104,7 +105,7 @@ class InsightResource extends Resource
             ])
             ->actions([
                 ViewAction::make(),
-                Tables\Actions\Action::make('generate')
+                Action::make('generate')
                     ->label('Générer')
                     ->icon('heroicon-o-sparkles')
                     ->color('warning')
