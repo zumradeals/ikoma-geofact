@@ -14,6 +14,7 @@ class CriticalAlertsWidget extends BaseWidget
     protected static ?int $sort = 5;
     protected static ?string $heading = 'Alertes critiques non résolues';
     protected int|string|array $columnSpan = 'full';
+    protected static ?string $pollingInterval = '20s';
 
     // N'afficher que s'il y a des alertes critiques ouvertes
     public static function canView(): bool
