@@ -8,5 +8,19 @@ use Illuminate\Support\Str;
 class CreateConnector extends CreateRecord {
     protected static string $resource = ConnectorResource::class;
     
-    protected function mutateFormDataBeforeCreate(array $data): array { $raw = Str::random(64); $data["id"] = Str::uuid()->toString(); $data["token_hash"] = Hash::make($raw); $data["token_version"] = 1; $data["created_at"] = now(); session(["connector_token_" . $data["id"] => $raw]); return $data; }
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $raw = Str::random(64);
+        $data['id']                = Str::uuid()->toString();
+        $data['token_hash']        = Hash::make($raw);
+        $data['token_version']     = 1;
+        $data['certified_by']      = auth()->id();
+        $data['certified_at']      = now();
+        $data['contract_versions'] = ['C-09' => 'v1.0', 'C-10' => 'v1.0'];
+        $data['created_at']        = now();
+
+        session(['connector_token_' . $data['id'] => $raw]);
+
+        return $data;
+    }
 }
