@@ -99,6 +99,12 @@ class User extends Authenticatable implements JWTSubject, FilamentUser, HasTenan
         return $this->password_hash ?? '';
     }
 
+    // Filament v4 : nom affiché dans le panel (pas de colonne 'name' — DC-14)
+    public function getFilamentName(): string
+    {
+        return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? '')) ?: $this->email;
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
