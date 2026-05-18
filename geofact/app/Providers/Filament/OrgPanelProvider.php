@@ -8,6 +8,7 @@ use App\Filament\Org\Widgets\AlertsBySeverityChart;
 use App\Filament\Org\Widgets\AlertsTrendChart;
 use App\Filament\Org\Widgets\CriticalAlertsWidget;
 use App\Filament\Org\Widgets\DriverScoreChart;
+use App\Filament\Org\Widgets\FleetUtilizationWidget;
 use App\Filament\Org\Widgets\StatsOverviewWidget;
 use App\Filament\Org\Widgets\VehicleActivityChart;
 use App\Models\Organization;
@@ -56,6 +57,7 @@ class OrgPanelProvider extends PanelProvider
                 VehicleActivityChart::class,
                 AlertsBySeverityChart::class,
                 DriverScoreChart::class,
+                FleetUtilizationWidget::class,
                 AlertsTrendChart::class,
                 CriticalAlertsWidget::class,
             ])
