@@ -111,6 +111,9 @@ class DriverScoreCalculatorTest extends TestCase
 
     private function insertTelemetry(string $eventType, int $count): void
     {
+        // Force noon to avoid night-activity penalty (22h–06h) skewing score tests
+        $daytime = Carbon::today()->setHour(12)->setMinute(0)->setSecond(0);
+
         for ($i = 0; $i < $count; $i++) {
             TelemetryEvent::insert([
                 'id'              => Str::uuid()->toString(),
@@ -118,8 +121,8 @@ class DriverScoreCalculatorTest extends TestCase
                 'device_id'       => 'dev-001',
                 'organization_id' => $this->orgId,
                 'event_type'      => $eventType,
-                'ts'              => now()->toDateTimeString(),
-                'received_at'     => now()->toDateTimeString(),
+                'ts'              => $daytime->toDateTimeString(),
+                'received_at'     => $daytime->toDateTimeString(),
                 'completeness'    => 'COMPLETE',
                 'payload'         => json_encode(['driver_id' => $this->driverId]),
             ]);

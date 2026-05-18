@@ -7,9 +7,11 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
+        "filament/filament": "^4.0",
         "guzzlehttp/guzzle": "^7.10",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
+        "leandrocfe/filament-apex-charts": "^5.1",
         "ramsey/uuid": "^4.9",
         "tymon/jwt-auth": "^2.3"
     },
@@ -53,7 +55,8 @@
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
+            "@php artisan package:discover --ansi",
+            "@php artisan filament:upgrade"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"

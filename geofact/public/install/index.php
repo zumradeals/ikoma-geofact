@@ -418,7 +418,7 @@ function doInstall(): void {
     $locked = file_put_contents(INSTALLER_LOCK, $lockContent) !== false;
     $steps[] = ['label' => 'Locking installer', 'ok' => $locked, 'output' => $locked ? 'Lock file created.' : 'Warning: could not create lock file.'];
 
-    echo json_encode(['ok' => true, 'steps' => $steps, 'app_url' => $appUrl ?? '']);
+    echo json_encode(['ok' => true, 'steps' => $steps, 'app_url' => $appUrl ?? '', 'admin_email' => $admin['email'] ?? '']);
 }
 
 // ─── Helper: h() ─────────────────────────────────────────────────────────────
@@ -909,9 +909,21 @@ input:focus,select:focus{outline:none;border-color:#f97316;box-shadow:0 0 0 3px 
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <h2>Installation réussie !</h2>
-        <p>IKOMA GEOFACT est installé. Redirection vers la page de connexion dans <strong><span id="redirect-countdown">4</span></strong> secondes…</p>
+        <p>IKOMA GEOFACT est installé et prêt. C'est une <strong>API REST</strong> — utilisez l'endpoint ci-dessous pour vous connecter.</p>
+
+        <div style="background:#f1f5f9;border-radius:8px;padding:20px;text-align:left;margin:20px 0;max-width:560px;margin-left:auto;margin-right:auto">
+          <p style="margin:0 0 8px;font-weight:600;color:#1e3a5f">Endpoint de connexion</p>
+          <code id="login-endpoint" style="font-size:.85rem;color:#0f172a;word-break:break-all"></code>
+
+          <p style="margin:16px 0 8px;font-weight:600;color:#1e3a5f">Corps de la requête (JSON)</p>
+          <pre style="margin:0;font-size:.8rem;color:#334155;white-space:pre-wrap">{"email": "<span id="display-email"></span>", "password": "votre_mot_de_passe"}</pre>
+
+          <p style="margin:16px 0 8px;font-weight:600;color:#1e3a5f">Exemple cURL</p>
+          <pre id="curl-example" style="margin:0;font-size:.75rem;color:#334155;white-space:pre-wrap;overflow-x:auto"></pre>
+        </div>
+
         <a href="#" id="success-link" class="btn btn-primary" style="font-size:1rem;padding:14px 32px">
-          Aller à la page de connexion
+          Tester l'API (Health check)
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
       </div>
@@ -1065,18 +1077,21 @@ function startInstall() {
       if (data.ok) {
         const successEl = document.getElementById('install-success');
         successEl.style.display = 'block';
-        const loginUrl = (data.app_url || '').replace(/\/$/, '') + '/login';
+        const base = (data.app_url || window.location.origin).replace(/\/$/, '');
+        const loginEndpoint = base + '/api/v1/auth/login';
+        const adminEmail = data.admin_email || '';
+
+        // Remplir les infos API
+        const epEl = document.getElementById('login-endpoint');
+        if (epEl) epEl.textContent = 'POST  ' + loginEndpoint;
+        const emailEl = document.getElementById('display-email');
+        if (emailEl) emailEl.textContent = adminEmail;
+        const curlEl = document.getElementById('curl-example');
+        if (curlEl) curlEl.textContent = `curl -X POST ${loginEndpoint} \\\n  -H "Content-Type: application/json" \\\n  -d '{"email":"${adminEmail}","password":"votre_mot_de_passe"}'`;
+
+        // Lien health check
         const link = document.getElementById('success-link');
-        link.href = loginUrl;
-        // Redirection automatique après 4 secondes
-        let countdown = 4;
-        const countEl = document.getElementById('redirect-countdown');
-        if (countEl) countEl.textContent = countdown;
-        const timer = setInterval(() => {
-          countdown--;
-          if (countEl) countEl.textContent = countdown;
-          if (countdown <= 0) { clearInterval(timer); window.location.href = loginUrl; }
-        }, 1000);
+        link.href = base + '/api/v1/health';
       } else {
         const errCard = document.getElementById('install-error-card');
         const errMsg  = document.getElementById('install-error-msg');
