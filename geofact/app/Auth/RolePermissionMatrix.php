@@ -116,6 +116,14 @@ class RolePermissionMatrix
     ];
 
     /**
+     * Alias of canPerform — used by GeofactPermissions facade.
+     */
+    public function can(string $role, string $action): bool
+    {
+        return $this->canPerform($role, $action);
+    }
+
+    /**
      * Vérifie si un rôle peut exécuter une action donnée.
      */
     public function canPerform(string $role, string $action): bool

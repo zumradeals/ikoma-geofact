@@ -1,7 +1,8 @@
 <?php
 
-use App\Providers\AppServiceProvider;
-
 return [
-    AppServiceProvider::class,
+    App\Providers\AppServiceProvider::class,
+    App\Providers\Filament\SuperAdminPanelProvider::class,
+    App\Providers\Filament\OrgPanelProvider::class,
+    App\Providers\GeofactPermissionsServiceProvider::class,
 ];

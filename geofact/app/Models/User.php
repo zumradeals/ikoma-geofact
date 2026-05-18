@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasTenants;
+use Filament\Panel;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable implements JWTSubject, FilamentUser, HasTenants
 {
     protected $table = 'users';
 
@@ -62,6 +67,36 @@ class User extends Authenticatable implements JWTSubject
             'scope_type'      => in_array($this->role, ['fleet_admin', 'supervisor']) ? 'fleet' : 'organization',
             'token_version'   => $this->token_version,
         ];
+    }
+
+    // FilamentUser: contrôle l'accès aux panels selon le rôle
+    public function canAccessPanel(Panel $panel): bool
+    {
+        if ($panel->getId() === 'superadmin') {
+            return $this->role === 'geofact_admin' && $this->status === 'active';
+        }
+        return in_array($this->role, ['org_admin', 'fleet_admin', 'supervisor', 'integrator', 'driver'], true)
+            && $this->status === 'active';
+    }
+
+    // HasTenants: retourne les organisations accessibles à cet utilisateur
+    public function getTenants(Panel $panel): Collection
+    {
+        return Organization::where('id', $this->organization_id)
+            ->where('status', 'active')
+            ->get();
+    }
+
+    // HasTenants: vérifie si cet utilisateur peut accéder à l'organisation donnée
+    public function canAccessTenant(Model $tenant): bool
+    {
+        return $tenant->id === $this->organization_id;
+    }
+
+    // Override Authenticatable — notre champ est password_hash pas password
+    public function getAuthPassword(): string
+    {
+        return $this->password_hash ?? '';
     }
 
     public function organization(): BelongsTo
