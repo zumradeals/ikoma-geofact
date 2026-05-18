@@ -5,16 +5,13 @@ namespace App\Filament\Org\Pages;
 use App\Models\Organization;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
-class OrgSettingsPage extends Page implements HasForms
+class OrgSettingsPage extends Page
 {
-    use InteractsWithForms;
 
     protected static ?string $title = 'Paramètres organisation';
     protected static ?int $navigationSort = 10;
@@ -35,9 +32,9 @@ class OrgSettingsPage extends Page implements HasForms
         ]);
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 TextInput::make('name')
                     ->label('Nom de l\'organisation')
