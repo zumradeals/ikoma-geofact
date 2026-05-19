@@ -57,20 +57,20 @@
             <div class="flex items-center gap-2">
                 @if(!$existing)
                 {{-- Formulaire de mapping --}}
-                <form wire:submit.prevent="mapUnit({{ $unit['id'] }}, '{{ addslashes($unit['name']) }}', document.getElementById('v_{{ $unit['id'] }}').value)"
-                      class="flex items-center gap-2">
-                    <select id="v_{{ $unit['id'] }}"
+                <div class="flex items-center gap-2">
+                    <select wire:model="selectedVehicles.{{ $unit['id'] }}"
                             class="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-orange-400 focus:border-orange-400">
                         <option value="">— Véhicule IKOMA —</option>
                         @foreach($vehicles as $v)
                         <option value="{{ $v->id }}">{{ $v->name }} {{ $v->license_plate ? '('.$v->license_plate.')' : '' }}</option>
                         @endforeach
                     </select>
-                    <button type="submit"
+                    <button type="button"
+                            wire:click="mapUnit({{ $unit['id'] }}, '{{ addslashes($unit['name']) }}')"
                             class="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors">
                         Mapper
                     </button>
-                </form>
+                </div>
                 @else
                 {{-- Toggle + Supprimer --}}
                 <button wire:click="toggleMapping('{{ $existing->id }}')"

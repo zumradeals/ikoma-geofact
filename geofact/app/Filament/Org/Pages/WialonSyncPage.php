@@ -18,6 +18,9 @@ class WialonSyncPage extends Page
     protected static ?int    $navigationSort = 20;
     protected string $view = 'filament.org.pages.wialon-sync';
 
+    /** @var array<string, string> Sélections en cours : wialon_unit_id => ikoma_vehicle_id */
+    public array $selectedVehicles = [];
+
     public static function getNavigationIcon(): string  { return 'heroicon-o-signal'; }
     public static function getNavigationGroup(): ?string { return 'Connecteurs GPS'; }
 
@@ -65,7 +68,13 @@ class WialonSyncPage extends Page
         ];
     }
 
-    public function mapUnit(int $wialonUnitId, string $wialonUnitName, string $vehicleId): void
+    public function mapUnit(int $wialonUnitId, string $wialonUnitName): void
+    {
+        $vehicleId = $this->selectedVehicles[(string) $wialonUnitId] ?? '';
+        $this->mapUnitWithVehicle($wialonUnitId, $wialonUnitName, $vehicleId);
+    }
+
+    public function mapUnitWithVehicle(int $wialonUnitId, string $wialonUnitName, string $vehicleId): void
     {
         $orgId = Filament::getTenant()?->id ?? Auth::user()?->organization_id;
 
