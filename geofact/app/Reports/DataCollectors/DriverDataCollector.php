@@ -39,12 +39,12 @@ class DriverDataCollector
         $avgSpeed = TelemetryEvent::whereIn('vehicle_id', $vehicleIds)
             ->whereNotNull('speed_kmh')
             ->where('speed_kmh', '>', 0)
-            ->whereBetween('ts', [$from->timestamp, $to->timestamp])
+            ->whereBetween('ts', [$from, $to])
             ->avg('speed_kmh');
 
         $maxSpeed = TelemetryEvent::whereIn('vehicle_id', $vehicleIds)
             ->whereNotNull('speed_kmh')
-            ->whereBetween('ts', [$from->timestamp, $to->timestamp])
+            ->whereBetween('ts', [$from, $to])
             ->max('speed_kmh');
 
         $activeDays     = $trips->groupBy(fn ($t) => $t->started_at->format('Y-m-d'))->count();
