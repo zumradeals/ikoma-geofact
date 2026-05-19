@@ -3,6 +3,7 @@
 namespace App\Filament\Org\Resources\RuleConfigResource\Pages;
 
 use App\Filament\Org\Resources\RuleConfigResource;
+use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListOrgRuleConfigs extends ListRecords
@@ -11,6 +12,8 @@ class ListOrgRuleConfigs extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Actions\CreateAction::make()->label('Ajouter une surcharge'),
+        ];
     }
 }

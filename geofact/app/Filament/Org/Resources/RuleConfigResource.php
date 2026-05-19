@@ -139,18 +139,6 @@ class RuleConfigResource extends Resource
                     ->label('Modifié')
                     ->since(),
             ])
-            ->headerActions([
-                Tables\Actions\CreateAction::make()
-                    ->label('Ajouter une surcharge')
-                    ->mutateFormDataUsing(function (array $data): array {
-                        $data['organization_id'] = Auth::user()?->organization_id;
-                        $data['updated_by']      = Auth::id();
-                        return $data;
-                    })
-                    ->after(function (RuleConfig $record): void {
-                        RuleConfigResolver::clearCache($record->rule_id, $record->organization_id);
-                    }),
-            ])
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->mutateFormDataUsing(function (array $data): array {
@@ -176,7 +164,8 @@ class RuleConfigResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListOrgRuleConfigs::route('/'),
+            'index'  => Pages\ListOrgRuleConfigs::route('/'),
+            'create' => Pages\CreateOrgRuleConfig::route('/create'),
         ];
     }
 }
