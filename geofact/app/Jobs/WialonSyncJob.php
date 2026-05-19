@@ -97,7 +97,7 @@ class WialonSyncJob
                 Log::warning('geofact.wialon.sync.unit_not_found', ['unit_id' => $mapping->wialon_unit_id]);
                 continue;
             }
-            $this->syncUnitFromLastMessage($pipeline, $client, $connector, $mapping, $unit, $now);
+            $this->syncUnitWithHistory($pipeline, $client, $connector, $mapping, $unit, $sid, $now);
         }
 
         DB::table('connectors')
@@ -105,38 +105,25 @@ class WialonSyncJob
             ->update(['last_sync_at' => now()]);
     }
 
-    private function syncUnitFromLastMessage(
+    /**
+     * Synchronise un véhicule en utilisant getMessages() pour récupérer tous les points GPS
+     * depuis le dernier sync (pas seulement lmsg). Fallback sur lmsg si getMessages échoue.
+     *
+     * Stratégie full-history : essentielle pour le TripDetector qui a besoin de plusieurs
+     * points GPS consécutifs pour calculer la distance réelle d'un trajet.
+     */
+    private function syncUnitWithHistory(
         ConnectorPipeline $pipeline,
         WialonApiClient   $client,
         Connector         $connector,
         WialonUnitMapping $mapping,
         array             $unit,
+        string            $sid,
         int               $nowTs
     ): void {
-        $unitId  = $mapping->wialon_unit_id;
-        $lmsg    = $unit['lmsg'] ?? null;
+        $unitId = $mapping->wialon_unit_id;
 
-        if (! $lmsg) {
-            Log::info('geofact.wialon.sync.no_lmsg', ['unit_id' => $unitId]);
-            return;
-        }
-
-        $msgTs = isset($lmsg['t']) ? (int) $lmsg['t'] : null;
-
-        if (! $msgTs) {
-            return;
-        }
-
-        // Ne pas retraiter un message déjà enregistré
-        if ($mapping->last_message_ts && $msgTs <= $mapping->last_message_ts) {
-            Log::info('geofact.wialon.sync.already_processed', [
-                'unit_id' => $unitId,
-                'msg_ts'  => $msgTs,
-            ]);
-            return;
-        }
-
-        // Garantit l'existence d'un Device pour satisfaire la FK telemetry_events.device_id
+        // Garantit l'existence d'un Device (FK obligatoire)
         $device = Device::firstOrCreate(
             [
                 'organization_id' => $connector->organization_id,
@@ -151,8 +138,94 @@ class WialonSyncJob
             ]
         );
 
+        // Fenêtre de temps : depuis le dernier message traité, max 2 heures en arrière
+        $fromTs = $mapping->last_message_ts
+            ? ((int) $mapping->last_message_ts + 1)
+            : ($nowTs - 7200);
+
+        // Tente getMessages() pour récupérer tous les points GPS de la période
+        $messages = $client->getMessages($sid, (int) $unitId, $fromTs, $nowTs);
+
+        if (! empty($messages)) {
+            $latestTs  = null;
+            $processed = 0;
+
+            foreach ($messages as $msg) {
+                $msgTs = isset($msg['t']) ? (int) $msg['t'] : null;
+                if (! $msgTs) {
+                    continue;
+                }
+
+                // Ignorer les messages sans position GPS
+                if (empty($msg['pos'])) {
+                    continue;
+                }
+
+                try {
+                    $payload               = $client->flattenMessage($msg, (int) $unitId, $device->id);
+                    $payload['event_type'] = 'telemetry.position.updated';
+                    $payload['device_id']  = $device->id;
+
+                    if ($mapping->ikoma_vehicle_id) {
+                        $payload['vehicle_id'] = $mapping->ikoma_vehicle_id;
+                    }
+
+                    $syntheticRequest = Request::create(
+                        '/wialon/ingest',
+                        'POST',
+                        [],
+                        [],
+                        [],
+                        ['CONTENT_TYPE' => 'application/json'],
+                        json_encode($payload)
+                    );
+                    $syntheticRequest->headers->set('Content-Type', 'application/json');
+                    $syntheticRequest->attributes->set('_connector', $connector);
+
+                    $pipeline->process($syntheticRequest);
+                    $processed++;
+
+                    if ($latestTs === null || $msgTs > $latestTs) {
+                        $latestTs = $msgTs;
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('geofact.wialon.sync.message_failed', [
+                        'unit_id' => $unitId,
+                        'msg_ts'  => $msgTs,
+                        'error'   => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            if ($latestTs) {
+                $mapping->update(['last_message_ts' => $latestTs]);
+            }
+
+            Log::info('geofact.wialon.sync.history_done', [
+                'unit_id'   => $unitId,
+                'processed' => $processed,
+                'from_ts'   => $fromTs,
+                'to_ts'     => $nowTs,
+            ]);
+
+            return;
+        }
+
+        // Fallback lmsg si getMessages() retourne vide (permission insuffisante ou aucun mouvement)
+        $lmsg  = $unit['lmsg'] ?? null;
+        $msgTs = isset($lmsg['t']) ? (int) $lmsg['t'] : null;
+
+        if (! $lmsg || ! $msgTs) {
+            Log::info('geofact.wialon.sync.no_data', ['unit_id' => $unitId]);
+            return;
+        }
+
+        if ($mapping->last_message_ts && $msgTs <= $mapping->last_message_ts) {
+            return;
+        }
+
         try {
-            $payload               = $client->flattenMessage($lmsg, $unitId, $device->id);
+            $payload               = $client->flattenMessage($lmsg, (int) $unitId, $device->id);
             $payload['event_type'] = 'telemetry.position.updated';
             $payload['device_id']  = $device->id;
 
@@ -173,15 +246,12 @@ class WialonSyncJob
             $syntheticRequest->attributes->set('_connector', $connector);
 
             $pipeline->process($syntheticRequest);
-
             $mapping->update(['last_message_ts' => $msgTs]);
 
-            Log::info('geofact.wialon.sync.unit_done', [
-                'unit_id'    => $unitId,
-                'msg_ts'     => $msgTs,
-                'lat'        => $payload['latitude'] ?? null,
-                'lon'        => $payload['longitude'] ?? null,
-                'speed_kmh'  => $payload['speed_kmh'] ?? null,
+            Log::info('geofact.wialon.sync.lmsg_fallback_done', [
+                'unit_id'   => $unitId,
+                'msg_ts'    => $msgTs,
+                'speed_kmh' => $payload['speed_kmh'] ?? null,
             ]);
 
         } catch (\Throwable $e) {
