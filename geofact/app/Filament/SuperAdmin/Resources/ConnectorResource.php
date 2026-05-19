@@ -7,6 +7,7 @@ use App\Models\Connector;
 use Filament\Forms;
 use Filament\Infolists;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Actions\EditAction;
@@ -79,15 +80,15 @@ class ConnectorResource extends Resource
                         ->revealable()
                         ->placeholder('Coller le token Wialon ici')
                         ->helperText('Trouvez ce token dans votre compte Wialon → Paramètres utilisateur → Token.')
-                        ->visible(fn (Forms\Get $get) => $get('provider_id') === 'wialon'),
+                        ->visible(fn (Get $get) => $get('provider_id') === 'wialon'),
 
                     Forms\Components\TextInput::make('provider_config.wialon_base_url')
                         ->label('URL de base Wialon')
                         ->default('https://hosting.wialon.com')
                         ->placeholder('https://hosting.wialon.com')
-                        ->visible(fn (Forms\Get $get) => $get('provider_id') === 'wialon'),
+                        ->visible(fn (Get $get) => $get('provider_id') === 'wialon'),
                 ])
-                ->visible(fn (Forms\Get $get) => in_array($get('provider_id'), ['wialon'])),
+                ->visible(fn (Get $get) => in_array($get('provider_id'), ['wialon'])),
         ]);
     }
 
