@@ -85,8 +85,8 @@ class ConnectorResource extends Resource
 
                     Forms\Components\TextInput::make('provider_config.wialon_base_url')
                         ->label('URL de base Wialon')
-                        ->default('https://hosting.wialon.com')
-                        ->placeholder('https://hosting.wialon.com')
+                        ->default('https://hst-api.wialon.com')
+                        ->placeholder('https://hst-api.wialon.com')
                         ->visible(fn (Get $get) => $get('provider_id') === 'wialon'),
                 ])
                 ->visible(fn (Get $get) => in_array($get('provider_id'), ['wialon'])),
