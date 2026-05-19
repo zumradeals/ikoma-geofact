@@ -6,28 +6,22 @@ use App\Connector\ConnectorPipeline;
 use App\Connector\Drivers\WialonApiClient;
 use App\Models\Connector;
 use App\Models\WialonUnitMapping;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Request;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Synchronise les messages Wialon vers le ConnectorPipeline IKOMA.
  * Déclenché toutes les minutes par le Scheduler (routes/console.php).
+ * Exécution synchrone (pas de ShouldQueue) — pas de worker requis.
  *
  * Isolation tenant : organization_id vient toujours du Connector IKOMA, jamais de Wialon.
  * Token Wialon : lu depuis config('wialon.token') — jamais loggué en clair.
  */
-class WialonSyncJob implements ShouldQueue
+class WialonSyncJob
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    public int $tries   = 1;
-    public int $timeout = 120;
+    use Dispatchable;
 
     public function handle(ConnectorPipeline $pipeline): void
     {
