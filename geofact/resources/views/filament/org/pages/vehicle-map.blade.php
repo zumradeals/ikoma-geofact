@@ -1,10 +1,36 @@
 <x-filament-panels::page>
-    {{-- Polling Livewire 30s : rafraîchit les données sans recharger la carte --}}
+    {{-- Polling Livewire 30s --}}
     <div wire:poll.30000ms="$refresh" style="display:none"></div>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" crossorigin="" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.min.css" crossorigin="" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.min.css" crossorigin="" />
+    <style>
+        .ikoma-tooltip {
+            background: rgba(30,58,95,0.9);
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 6px;
+            white-space: nowrap;
+            box-shadow: 0 1px 4px rgba(0,0,0,.3);
+        }
+        .ikoma-tooltip::before { display: none; }
+        .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+            background-clip: padding-box;
+        }
+        .marker-cluster-small  { background-color: rgba(249,115,22,.4); }
+        .marker-cluster-medium { background-color: rgba(249,115,22,.6); }
+        .marker-cluster-large  { background-color: rgba(249,115,22,.8); }
+        .marker-cluster-small  div { background-color: rgba(249,115,22,.8); }
+        .marker-cluster-medium div { background-color: rgba(249,115,22,.9); }
+        .marker-cluster-large  div { background-color: rgba(249,115,22,1);  }
+        .marker-cluster div { color: #fff; font-weight: 700; }
+    </style>
 
-    {{-- Stats summary --}}
+    {{-- Stats --}}
     <div class="grid grid-cols-2 gap-4 mb-4 sm:grid-cols-4">
         <div class="rounded-xl bg-white dark:bg-gray-800 shadow px-4 py-3 border-l-4" style="border-color:#1e3a5f">
             <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Véhicules actifs</p>
@@ -26,17 +52,28 @@
         </div>
     </div>
 
-    {{-- Map container --}}
+    {{-- Légende --}}
+    <div class="flex gap-4 mb-3 text-xs font-medium text-gray-600 dark:text-gray-400">
+        <span class="flex items-center gap-1">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#22c55e"></span> En mouvement
+        </span>
+        <span class="flex items-center gap-1">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444"></span> À l'arrêt
+        </span>
+        <span class="flex items-center gap-1">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#9ca3af"></span> Hors ligne (&gt;1h)
+        </span>
+    </div>
+
+    {{-- Carte --}}
     <div class="rounded-xl overflow-hidden shadow-lg" style="height:600px; border:2px solid #1e3a5f">
         <div id="vehicle-map" style="height:100%;width:100%;"></div>
     </div>
 
-    {{-- Vehicle list without position --}}
+    {{-- Véhicules sans position --}}
     @if($withoutPos > 0)
     <div class="mt-4 rounded-xl bg-white dark:bg-gray-800 shadow p-4">
-        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Véhicules sans position GPS
-        </h3>
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Véhicules sans position GPS</h3>
         <div class="flex flex-wrap gap-2">
             @foreach($vehicles->where('has_pos', false) as $v)
             <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -48,9 +85,10 @@
     @endif
 
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.min.js" crossorigin=""></script>
     <script>
     function ikomaInitMap() {
-        if (typeof L === 'undefined') {
+        if (typeof L === 'undefined' || typeof L.markerClusterGroup === 'undefined') {
             setTimeout(ikomaInitMap, 200);
             return;
         }
@@ -59,11 +97,9 @@
 
         var vehicles = {!! $vehiclesJson !!};
         var geoZones = {!! $geoZonesJson !!};
+        var now      = Date.now();
 
-        var defaultLat = 5.3599517;
-        var defaultLng = -4.0082563;
-        var defaultZoom = 7;
-
+        var defaultLat = 5.3599517, defaultLng = -4.0082563, defaultZoom = 7;
         if (vehicles.length > 0 && vehicles[0].lat) {
             defaultLat = vehicles[0].lat;
             defaultLng = vehicles[0].lng;
@@ -73,18 +109,17 @@
         if (window._ikomaMap) {
             try { window._ikomaMap.remove(); } catch(e) {}
             window._ikomaMap = null;
-            window._ikomaFitted = false;
         }
 
         var map = L.map('vehicle-map', { zoomControl: true }).setView([defaultLat, defaultLng], defaultZoom);
         window._ikomaMap = map;
-        window._ikomaMarkers = [];
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
+        // Géozones
         geoZones.forEach(function (z) {
             if (!z.geometry) return;
             var g = z.geometry;
@@ -101,36 +136,59 @@
             if (layer) layer.addTo(map).bindPopup(popup);
         });
 
-        function makeIcon(heading) {
-            var rotation = heading || 0;
-            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">'
-                + '<g transform="rotate(' + rotation + ' 16 16)">'
-                + '<polygon points="16,2 26,28 16,22 6,28" fill="#f97316" stroke="#1e3a5f" stroke-width="2"/>'
-                + '</g></svg>';
-            return L.divIcon({ html: svg, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16], className: '' });
+        // Détermine couleur selon état
+        function vehicleColor(v) {
+            if (!v.ts) return '#9ca3af'; // pas de données
+            var age = now - new Date(v.ts).getTime();
+            if (age > 3600000) return '#9ca3af'; // hors ligne >1h
+            if (v.speed && v.speed > 0) return '#22c55e'; // en mouvement
+            return '#ef4444'; // à l'arrêt
         }
+
+        function makeIcon(heading, color) {
+            var rotation = heading || 0;
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">'
+                + '<g transform="rotate(' + rotation + ' 18 18)">'
+                + '<polygon points="18,3 29,31 18,24 7,31" fill="' + color + '" stroke="#fff" stroke-width="2"/>'
+                + '</g></svg>';
+            return L.divIcon({ html: svg, iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -20], className: '' });
+        }
+
+        // Cluster
+        var cluster = L.markerClusterGroup({ maxClusterRadius: 50, disableClusteringAtZoom: 15 });
 
         var bounds = [];
         vehicles.forEach(function (v) {
             if (!v.lat || !v.lng) return;
             var latlng = [v.lat, v.lng];
             bounds.push(latlng);
-            var ts    = v.ts ? new Date(v.ts).toLocaleString('fr-FR') : '—';
-            var speed = v.speed !== null ? v.speed.toFixed(1) + ' km/h' : '—';
-            var popup = '<div style="min-width:160px;font-family:sans-serif">'
-                + '<div style="font-weight:700;font-size:14px;color:#1e3a5f;border-bottom:2px solid #f97316;padding-bottom:4px;margin-bottom:6px">' + (v.plate || '—') + '</div>'
+
+            var color  = vehicleColor(v);
+            var ts     = v.ts ? new Date(v.ts).toLocaleString('fr-FR') : '—';
+            var speed  = v.speed !== null ? v.speed.toFixed(1) + ' km/h' : '—';
+            var stateLabel = color === '#22c55e' ? 'En mouvement' : (color === '#ef4444' ? 'À l\'arrêt' : 'Hors ligne');
+
+            var popup = '<div style="min-width:170px;font-family:sans-serif">'
+                + '<div style="font-weight:700;font-size:14px;color:#1e3a5f;border-bottom:3px solid ' + color + ';padding-bottom:4px;margin-bottom:6px">'
+                + (v.plate || '—') + ' <span style="font-size:10px;font-weight:400;color:' + color + '">' + stateLabel + '</span></div>'
                 + '<table style="font-size:12px;width:100%;border-collapse:collapse">'
-                + '<tr><td style="color:#666;padding:1px 4px 1px 0">Nom</td><td style="font-weight:600">' + (v.name || '—') + '</td></tr>'
-                + '<tr><td style="color:#666;padding:1px 4px 1px 0">Flotte</td><td>' + (v.fleet || '—') + '</td></tr>'
-                + '<tr><td style="color:#666;padding:1px 4px 1px 0">Vitesse</td><td>' + speed + '</td></tr>'
-                + '<tr><td style="color:#666;padding:1px 4px 1px 0">Dernière MAJ</td><td>' + ts + '</td></tr>'
+                + '<tr><td style="color:#666;padding:2px 6px 2px 0">Nom</td><td style="font-weight:600">' + (v.name || '—') + '</td></tr>'
+                + '<tr><td style="color:#666;padding:2px 6px 2px 0">Flotte</td><td>' + (v.fleet || '—') + '</td></tr>'
+                + '<tr><td style="color:#666;padding:2px 6px 2px 0">Vitesse</td><td>' + speed + '</td></tr>'
+                + '<tr><td style="color:#666;padding:2px 6px 2px 0">Dernière MAJ</td><td>' + ts + '</td></tr>'
                 + '</table></div>';
-            var marker = L.marker(latlng, { icon: makeIcon(v.heading) }).addTo(map).bindPopup(popup);
-            window._ikomaMarkers.push(marker);
+
+            var marker = L.marker(latlng, { icon: makeIcon(v.heading, color) })
+                .bindPopup(popup)
+                .bindTooltip(v.plate || v.name, { permanent: true, direction: 'top', offset: [0, -20], className: 'ikoma-tooltip' });
+
+            cluster.addLayer(marker);
         });
 
+        map.addLayer(cluster);
+
         if (bounds.length > 1) {
-            map.fitBounds(bounds, { padding: [40, 40] });
+            map.fitBounds(bounds, { padding: [50, 50] });
         } else if (bounds.length === 1) {
             map.setView(bounds[0], 14);
         }
