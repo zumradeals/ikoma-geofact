@@ -89,7 +89,7 @@ class WialonApiClient
                         'sortType'     => 'sys_name',
                     ],
                     'force'     => 1,
-                    'flags'     => 0x3FF, // max flags pour inclure lmsg
+                    'flags'     => 0x401, // 0x1=base + 0x400=last message (lmsg)
                     'from'      => 0,
                     'to'        => 0,
                 ]),
