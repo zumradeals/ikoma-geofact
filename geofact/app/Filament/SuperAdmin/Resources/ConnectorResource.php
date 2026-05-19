@@ -6,7 +6,6 @@ use App\Filament\SuperAdmin\Resources\ConnectorResource\Pages;
 use App\Models\Connector;
 use Filament\Forms;
 use Filament\Infolists;
-use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -72,9 +71,9 @@ class ConnectorResource extends Resource
         ]);
     }
 
-    public static function infolist(Infolist $infolist): Infolist
+    public static function infolist(Schema $schema): Schema
     {
-        return $infolist->schema([
+        return $schema->schema([
             Infolists\Components\TextEntry::make('organization.name')->label('Organisation'),
             Infolists\Components\TextEntry::make('provider_id')->label('Fournisseur GPS'),
             Infolists\Components\TextEntry::make('connector_type')->label('Type')->badge(),
