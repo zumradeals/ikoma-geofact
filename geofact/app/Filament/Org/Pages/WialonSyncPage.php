@@ -4,6 +4,7 @@ namespace App\Filament\Org\Pages;
 
 use App\Connector\Drivers\WialonApiClient;
 use App\Models\Connector;
+use App\Models\Fleet;
 use App\Models\Vehicle;
 use App\Models\WialonUnitMapping;
 use Filament\Facades\Filament;
@@ -72,6 +73,60 @@ class WialonSyncPage extends Page
     {
         $vehicleId = $this->selectedVehicles[(string) $wialonUnitId] ?? '';
         $this->mapUnitWithVehicle($wialonUnitId, $wialonUnitName, $vehicleId);
+    }
+
+    /**
+     * Crée automatiquement le véhicule depuis le nom de l'unité Wialon
+     * puis le mappe — aucune création manuelle requise.
+     */
+    public function autoMapUnit(int $wialonUnitId, string $wialonUnitName): void
+    {
+        $orgId = Filament::getTenant()?->id ?? Auth::user()?->organization_id;
+        $plate = $this->extractPlate($wialonUnitName);
+
+        // Récupère la première flotte de l'org (optionnel — fleet_id est nullable)
+        $fleetId = Fleet::where('organization_id', $orgId)->value('id');
+
+        $vehicle = Vehicle::firstOrCreate(
+            ['organization_id' => $orgId, 'plate' => $plate],
+            [
+                'id'              => Str::uuid()->toString(),
+                'organization_id' => $orgId,
+                'fleet_id'        => $fleetId,
+                'name'            => mb_substr($wialonUnitName, 0, 100),
+                'plate'           => $plate,
+                'status'          => 'active',
+                'created_by'      => Auth::id(),
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]
+        );
+
+        $this->mapUnitWithVehicle($wialonUnitId, $wialonUnitName, $vehicle->id);
+
+        Notification::make()
+            ->title('Véhicule créé et mappé')
+            ->body("Véhicule « {$plate} » créé automatiquement depuis Wialon.")
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Extrait la plaque depuis le nom d'une unité Wialon.
+     * Formats CI supportés : AA-524-BT · 44917 WW CI 01 · 2089 LE 01
+     */
+    private function extractPlate(string $unitName): string
+    {
+        // Format avec tirets : AA-524-BT
+        if (preg_match('/\b([A-Z]{1,3}-\d{2,4}-[A-Z]{1,3})\b/', $unitName, $m)) {
+            return $m[1];
+        }
+        // Format avec espaces type CI : 44917 WW CI 01 ou 2089 LE 01
+        if (preg_match('/(\d{3,6}\s+[A-Z]{1,4}(?:\s+CI)?\s+\d{2})\s*$/i', $unitName, $m)) {
+            return mb_substr(trim($m[1]), 0, 20);
+        }
+        // Fallback : 20 derniers caractères
+        return mb_substr(trim($unitName), -20);
     }
 
     public function mapUnitWithVehicle(int $wialonUnitId, string $wialonUnitName, string $vehicleId): void
