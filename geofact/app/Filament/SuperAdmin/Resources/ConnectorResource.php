@@ -7,6 +7,7 @@ use App\Models\Connector;
 use Filament\Forms;
 use Filament\Infolists;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -71,7 +72,7 @@ class ConnectorResource extends Resource
                 ->label('')
                 ->content('Le token IKOMA est généré automatiquement à la création. Il ne peut être consulté qu\'une seule fois.'),
 
-            Forms\Components\Section::make('Configuration fournisseur')
+            Section::make('Configuration fournisseur')
                 ->description('Identifiants spécifiques au fournisseur GPS (chiffrés en base).')
                 ->schema([
                     Forms\Components\TextInput::make('provider_config.wialon_token')
