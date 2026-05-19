@@ -135,6 +135,12 @@ class WialonSyncJob implements ShouldQueue
             try {
                 $payload = $client->flattenMessage($msg, $unitId, $deviceId);
 
+                // Enrichit avec les champs requis par le pipeline (C-09 + résolution tenant)
+                $payload['event_type'] = 'telemetry.position.updated';
+                if ($mapping->ikoma_vehicle_id) {
+                    $payload['vehicle_id'] = $mapping->ikoma_vehicle_id;
+                }
+
                 // Crée une Request synthétique Laravel (auth bypassée via _connector)
                 $syntheticRequest = Request::create(
                     '/wialon/ingest',

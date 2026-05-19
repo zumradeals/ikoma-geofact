@@ -25,6 +25,8 @@ class NormalizationMap
             'temperature_celsius' => 'temperature_celsius',// p.engine_temp aplati (si présent)
             'ignition'            => 'ignition',           // i aplati (bitfield — 1 = on)
             'device_id'           => 'device_id',          // deviceId injecté par flattenMessage
+            'event_type'          => 'event_type',          // injecté par WialonSyncJob
+            'vehicle_id'          => 'vehicle_id',          // injecté depuis WialonUnitMapping
         ],
         'traccar' => [
             'speed'      => 'speed_kmh',
