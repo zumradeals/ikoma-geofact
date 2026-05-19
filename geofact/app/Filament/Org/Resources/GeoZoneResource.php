@@ -8,6 +8,8 @@ use App\Models\GeoZone;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Actions\BulkActionGroup;
@@ -41,7 +43,7 @@ class GeoZoneResource extends Resource
         $orgId = Auth::user()?->organization_id;
 
         return $schema->schema([
-            Forms\Components\Grid::make(2)->schema([
+            Grid::make(2)->schema([
                 Forms\Components\TextInput::make('name')
                     ->label('Nom de la zone')
                     ->required()
@@ -89,7 +91,7 @@ class GeoZoneResource extends Resource
                     ->dehydrated(false),
             ]),
 
-            Forms\Components\Section::make('Géométrie')
+            Section::make('Géométrie')
                 ->description('Définissez la forme de la zone. Pour un cercle : {"type":"circle","center":[lat,lng],"radius":500}. Pour un polygone : {"type":"polygon","coordinates":[[lat,lng],...]}')
                 ->schema([
                     Forms\Components\Textarea::make('geometry')
@@ -100,7 +102,7 @@ class GeoZoneResource extends Resource
                         ->afterStateUpdated(null),
                 ]),
 
-            Forms\Components\Section::make('Aperçu carte')
+            Section::make('Aperçu carte')
                 ->schema([
                     Forms\Components\View::make('filament.org.components.geozone-map-preview'),
                 ])
