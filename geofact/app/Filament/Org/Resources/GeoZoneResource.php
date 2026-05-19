@@ -91,23 +91,21 @@ class GeoZoneResource extends Resource
                     ->dehydrated(false),
             ]),
 
-            Section::make('Géométrie')
-                ->description('Définissez la forme de la zone. Pour un cercle : {"type":"circle","center":[lat,lng],"radius":500}. Pour un polygone : {"type":"polygon","coordinates":[[lat,lng],...]}')
+            Section::make('Dessiner la zone sur la carte')
+                ->description('Utilisez les outils de dessin (cercle, polygone, rectangle) pour définir la géozone directement sur la carte.')
                 ->schema([
-                    Forms\Components\Textarea::make('geometry')
-                        ->label('Coordonnées JSON')
-                        ->required()
-                        ->rows(4)
-                        ->helperText('Format JSON. Modifier la géométrie d\'une zone active incrémente automatiquement la version.')
-                        ->afterStateUpdated(null),
-                ]),
+                    \Filament\Forms\Components\ViewField::make('geometry_map_editor')
+                        ->view('filament.org.components.geozone-map-editor')
+                        ->columnSpanFull()
+                        ->dehydrated(false),
 
-            Section::make('Aperçu carte')
-                ->schema([
-                    \Filament\Forms\Components\ViewField::make('map_preview')
-                        ->view('filament.org.components.geozone-map-preview'),
-                ])
-                ->visible(fn ($record) => $record !== null),
+                    Forms\Components\Textarea::make('geometry')
+                        ->label('Géométrie JSON (auto-rempli par la carte)')
+                        ->required()
+                        ->rows(2)
+                        ->helperText('Ce champ est automatiquement mis à jour quand vous dessinez sur la carte. Vous pouvez aussi le modifier directement.')
+                        ->columnSpanFull(),
+                ]),
         ]);
     }
 

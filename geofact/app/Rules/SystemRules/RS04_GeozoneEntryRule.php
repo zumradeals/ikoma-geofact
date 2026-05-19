@@ -36,6 +36,19 @@ class RS04_GeozoneEntryRule implements RuleInterface
                 continue;
             }
 
+            // Skip if an unresolved alert already exists for this vehicle+zone — prevents
+            // a new alert every minute while vehicle stays inside the zone.
+            $alreadyOpen = Alert::where('organization_id', $event->organizationId)
+                ->where('vehicle_id', $event->vehicleId)
+                ->where('rule_id', 'RS04')
+                ->whereNotIn('status', ['resolved', 'expired'])
+                ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload, '$.geozone_id')) = ?", [$zone->id])
+                ->exists();
+
+            if ($alreadyOpen) {
+                continue;
+            }
+
             $isRestricted = $zone->zone_type === 'restricted';
             $eventType    = $isRestricted ? 'geozone.violated' : 'geozone.entered';
             $severity     = $isRestricted ? 'HIGH' : 'LOW';
