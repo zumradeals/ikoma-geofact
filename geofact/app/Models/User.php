@@ -100,6 +100,11 @@ class User extends Authenticatable implements JWTSubject, FilamentUser, HasName,
         return $this->password_hash ?? '';
     }
 
+    // Désactive remember_token — auth via JWT, pas de session remember-me (colonne absente de DC-14)
+    public function getRememberToken(): string { return ''; }
+    public function setRememberToken($value): void {}
+    public function getRememberTokenName(): string { return ''; }
+
     // Filament v4 : nom affiché dans le panel (pas de colonne 'name' — DC-14)
     public function getFilamentName(): string
     {
