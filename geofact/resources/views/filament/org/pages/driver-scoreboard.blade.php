@@ -1,12 +1,17 @@
 <x-filament-panels::page>
 
     <div class="mb-4 text-sm text-gray-500 dark:text-gray-400">
-        Période : <strong>{{ $period }}</strong> — basé sur les KPIs différés (DF)
+        Période : <strong>{{ $period }}</strong>
+        @if($isFallback)
+        — <span class="text-amber-600 dark:text-amber-400">Scores estimés depuis les alertes (KPI DF actif dès 01h00)</span>
+        @else
+        — basé sur les KPIs différés (DF)
+        @endif
     </div>
 
     @if($scoreboard->isEmpty())
     <div class="rounded-xl bg-white dark:bg-gray-800 shadow p-8 text-center">
-        <p class="text-gray-500">Aucun score calculé pour la période. Relancez le scheduler KPI DF.</p>
+        <p class="text-gray-500">Aucun conducteur actif trouvé. Créez des conducteurs dans la section Flotte.</p>
     </div>
     @else
     <div class="rounded-xl bg-white dark:bg-gray-800 shadow overflow-hidden">
