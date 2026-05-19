@@ -25,31 +25,7 @@ class AiEnricher
 
         $prompt = $this->buildFleetPrompt($data);
 
-        try {
-            $response = Http::withHeaders([
-                'x-api-key'         => $this->apiKey,
-                'anthropic-version' => '2023-06-01',
-                'content-type'      => 'application/json',
-            ])->timeout(30)->post('https://api.anthropic.com/v1/messages', [
-                'model'      => $this->model,
-                'max_tokens' => 1024,
-                'messages'   => [
-                    ['role' => 'user', 'content' => $prompt],
-                ],
-            ]);
-
-            if (! $response->successful()) {
-                Log::error('geofact.report.ai.api_error', ['status' => $response->status()]);
-                return $this->fallback();
-            }
-
-            $text = $response->json('content.0.text', '');
-            return $this->parseAiResponse($text);
-
-        } catch (\Throwable $e) {
-            Log::error('geofact.report.ai.exception', ['error' => $e->getMessage()]);
-            return $this->fallback();
-        }
+        return $this->callApi($prompt);
     }
 
     private function buildFleetPrompt(array $d): string
@@ -123,6 +99,126 @@ PROMPT;
             'anomalies'       => (array) ($parsed['anomalies'] ?? []),
             'recommendations' => (array) ($parsed['recommendations'] ?? []),
         ];
+    }
+
+    public function enrichVehicleReport(array $data): array
+    {
+        if (empty($this->apiKey)) {
+            return $this->fallback();
+        }
+
+        $ruleLines = '';
+        foreach ($data['alerts_by_rule'] ?? [] as $rule => $count) {
+            $ruleLines .= "  - {$rule} : {$count} alerte(s)\n";
+        }
+
+        $prompt = <<<PROMPT
+Tu es analyste expert en gestion de flotte pour PME africaines.
+Analyse les données suivantes pour UN véhicule et génère un rapport structuré en français.
+
+VÉHICULE : {$data['vehicle_plate']} ({$data['vehicle_brand']} {$data['vehicle_model']} {$data['vehicle_year']})
+FLOTTE : {$data['fleet_name']}
+PÉRIODE : {$data['period_from']} → {$data['period_to']}
+
+ACTIVITÉ :
+- Trajets effectués : {$data['total_trips']}
+- Distance totale : {$data['total_km']} km
+- Heures de conduite : {$data['total_hours']} h
+- Jours actifs : {$data['active_days']}
+- Vitesse moyenne : {$data['avg_speed_kmh']} km/h
+- Vitesse maximale : {$data['max_speed_kmh']} km/h
+- Trajets anomaleux : {$data['anomalous_trips']}
+- Dernière localisation : {$data['last_seen_at']}
+
+ALERTES ({$data['alerts_total']} total, {$data['alerts_unresolved']} non résolues) :
+- Critiques : {$data['alerts_critical']} | Hautes : {$data['alerts_high']} | Moyennes : {$data['alerts_medium']} | Basses : {$data['alerts_low']}
+Par règle :
+{$ruleLines}
+
+Génère une réponse JSON avec exactement ces 3 clés :
+{
+  "summary": "Résumé exécutif en 3-4 phrases sur l'utilisation et l'état du véhicule.",
+  "anomalies": ["point 1", "point 2", "point 3"],
+  "recommendations": ["recommandation 1", "recommandation 2", "recommandation 3"]
+}
+
+Règles : sois factuel, mets en avant les risques, recommandations actionnables immédiatement.
+PROMPT;
+
+        return $this->callApi($prompt);
+    }
+
+    public function enrichDriverReport(array $data): array
+    {
+        if (empty($this->apiKey)) {
+            return $this->fallback();
+        }
+
+        $ruleLines = '';
+        foreach ($data['alerts_by_rule'] ?? [] as $rule => $count) {
+            $ruleLines .= "  - {$rule} : {$count} alerte(s)\n";
+        }
+
+        $prompt = <<<PROMPT
+Tu es analyste expert en gestion de flotte pour PME africaines.
+Analyse les données suivantes pour UN conducteur et génère un rapport structuré en français.
+
+CONDUCTEUR : {$data['driver_name']}
+Permis : {$data['license_number']} (expire le {$data['license_expiry']})
+PÉRIODE : {$data['period_from']} → {$data['period_to']}
+
+ACTIVITÉ :
+- Trajets effectués : {$data['total_trips']}
+- Distance totale : {$data['total_km']} km
+- Heures de conduite : {$data['total_hours']} h
+- Jours actifs : {$data['active_days']}
+- Vitesse moyenne : {$data['avg_speed_kmh']} km/h
+- Vitesse maximale : {$data['max_speed_kmh']} km/h
+- Trajets anomaleux : {$data['anomalous_trips']}
+- Score de sécurité : {$data['safety_score']}/100
+- Véhicules utilisés : {$data['vehicles_count']}
+
+ALERTES ({$data['alerts_total']} total, {$data['alerts_unresolved']} non résolues) :
+- Critiques : {$data['alerts_critical']} | Hautes : {$data['alerts_high']} | Moyennes : {$data['alerts_medium']} | Basses : {$data['alerts_low']}
+Par règle :
+{$ruleLines}
+
+Génère une réponse JSON avec exactement ces 3 clés :
+{
+  "summary": "Résumé exécutif en 3-4 phrases sur le comportement de conduite.",
+  "anomalies": ["point 1", "point 2", "point 3"],
+  "recommendations": ["recommandation 1", "recommandation 2", "recommandation 3"]
+}
+
+Règles : sois factuel, évalue le niveau de risque du conducteur, recommandations actionnables.
+PROMPT;
+
+        return $this->callApi($prompt);
+    }
+
+    private function callApi(string $prompt): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'x-api-key'         => $this->apiKey,
+                'anthropic-version' => '2023-06-01',
+                'content-type'      => 'application/json',
+            ])->timeout(30)->post('https://api.anthropic.com/v1/messages', [
+                'model'      => $this->model,
+                'max_tokens' => 1024,
+                'messages'   => [['role' => 'user', 'content' => $prompt]],
+            ]);
+
+            if (! $response->successful()) {
+                Log::error('geofact.report.ai.api_error', ['status' => $response->status()]);
+                return $this->fallback();
+            }
+
+            return $this->parseAiResponse($response->json('content.0.text', ''));
+        } catch (\Throwable $e) {
+            Log::error('geofact.report.ai.exception', ['error' => $e->getMessage()]);
+            return $this->fallback();
+        }
     }
 
     private function fallback(): array
