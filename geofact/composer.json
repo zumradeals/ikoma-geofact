@@ -13,7 +13,8 @@
         "laravel/tinker": "^3.0",
         "leandrocfe/filament-apex-charts": "^5.1",
         "ramsey/uuid": "^4.9",
-        "tymon/jwt-auth": "^2.3"
+        "tymon/jwt-auth": "^2.3",
+        "barryvdh/laravel-dompdf": "^3.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

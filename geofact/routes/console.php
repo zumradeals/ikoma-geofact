@@ -62,3 +62,11 @@ Schedule::job(new \App\Jobs\WialonSyncJob())
     ->everyMinute()
     ->name('connector.wialon.sync')
     ->withoutOverlapping();
+
+// ── Trip Detector — Détection automatique des trajets (C-06) ──────────────────
+// Lit les telemetry_events et ouvre/ferme les trips via machine à états.
+// Décalé de 1 minute par rapport au sync Wialon pour laisser les events s'insérer.
+Schedule::job(new \App\Jobs\TripDetectorJob())
+    ->everyTwoMinutes()
+    ->name('core.trip_detector')
+    ->withoutOverlapping();
