@@ -83,7 +83,7 @@ class VehicleDataCollector
             'alerts_low'        => $alertsBySeverity['LOW'] ?? 0,
             'alerts_by_rule'    => $alertsByRule,
             'alerts_unresolved' => $alerts->whereIn('status', ['open', 'triggered', 'delivered'])->count(),
-            'last_seen_at'      => $lastEvent ? Carbon::createFromTimestamp($lastEvent->ts)->format('d/m/Y H:i') : '—',
+            'last_seen_at'      => $lastEvent?->ts?->format('d/m/Y H:i') ?? '—',
             'trips_detail'      => $trips->map(fn ($t) => [
                 'date'     => $t->started_at->format('d/m/Y'),
                 'distance' => round((float) $t->distance_km, 1),
