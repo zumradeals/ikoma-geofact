@@ -2,8 +2,12 @@
 
 namespace App\Filament\Org\Pages;
 
+use App\Jobs\GenerateDriverReportJob;
 use App\Jobs\GenerateFleetReportJob;
+use App\Jobs\GenerateVehicleReportJob;
+use App\Models\Driver;
 use App\Models\Report;
+use App\Models\Vehicle;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -68,7 +72,6 @@ class ReportsPage extends Page
                 ])
                 ->action(function (array $data): void {
                     [$from, $to] = $this->resolvePeriod($data);
-
                     $orgId    = Auth::user()?->organization_id;
                     $userId   = Auth::id();
                     $reportId = Str::uuid()->toString();
@@ -86,11 +89,128 @@ class ReportsPage extends Page
 
                     GenerateFleetReportJob::dispatch($reportId, $orgId, $from, $to, $userId);
 
-                    Notification::make()
-                        ->title('Rapport en cours de génération')
-                        ->body('Il sera disponible dans quelques secondes.')
-                        ->success()
-                        ->send();
+                    Notification::make()->title('Rapport en cours de génération')->body('Il sera disponible dans quelques secondes.')->success()->send();
+                }),
+
+            Action::make('generate_vehicle')
+                ->label('Rapport véhicule')
+                ->icon('heroicon-o-truck')
+                ->color('info')
+                ->form([
+                    Select::make('vehicle_id')
+                        ->label('Véhicule')
+                        ->options(fn () => Vehicle::where('organization_id', Auth::user()?->organization_id)
+                            ->where('status', 'active')
+                            ->orderBy('plate')
+                            ->pluck('plate', 'id'))
+                        ->required()
+                        ->searchable(),
+
+                    Select::make('period')
+                        ->label('Période')
+                        ->options([
+                            'last_month'  => 'Mois dernier',
+                            'this_month'  => 'Ce mois-ci',
+                            'last_7days'  => '7 derniers jours',
+                            'last_30days' => '30 derniers jours',
+                            'custom'      => 'Personnalisée',
+                        ])
+                        ->default('last_month')
+                        ->required()
+                        ->live(),
+
+                    DatePicker::make('date_from')
+                        ->label('Du')
+                        ->visible(fn ($get) => $get('period') === 'custom')
+                        ->required(fn ($get) => $get('period') === 'custom'),
+
+                    DatePicker::make('date_to')
+                        ->label('Au')
+                        ->visible(fn ($get) => $get('period') === 'custom')
+                        ->required(fn ($get) => $get('period') === 'custom'),
+                ])
+                ->action(function (array $data): void {
+                    [$from, $to] = $this->resolvePeriod($data);
+                    $orgId      = Auth::user()?->organization_id;
+                    $userId     = Auth::id();
+                    $reportId   = Str::uuid()->toString();
+                    $vehicle    = Vehicle::find($data['vehicle_id']);
+
+                    Report::create([
+                        'id'              => $reportId,
+                        'organization_id' => $orgId,
+                        'report_type'     => 'vehicle',
+                        'status'          => 'pending',
+                        'period_from'     => $from,
+                        'period_to'       => $to,
+                        'title'           => 'Rapport Véhicule — ' . ($vehicle?->plate ?? '') . ' — ' . $from->format('d/m/Y') . ' au ' . $to->format('d/m/Y'),
+                        'generated_by'    => $userId,
+                    ]);
+
+                    GenerateVehicleReportJob::dispatch($reportId, $orgId, $data['vehicle_id'], $from, $to, $userId);
+
+                    Notification::make()->title('Rapport véhicule en cours')->body('Il sera disponible dans quelques secondes.')->success()->send();
+                }),
+
+            Action::make('generate_driver')
+                ->label('Rapport conducteur')
+                ->icon('heroicon-o-user-circle')
+                ->color('warning')
+                ->form([
+                    Select::make('driver_id')
+                        ->label('Conducteur')
+                        ->options(fn () => Driver::where('organization_id', Auth::user()?->organization_id)
+                            ->where('status', 'active')
+                            ->orderBy('last_name')
+                            ->get()
+                            ->mapWithKeys(fn ($d) => [$d->id => $d->first_name . ' ' . $d->last_name]))
+                        ->required()
+                        ->searchable(),
+
+                    Select::make('period')
+                        ->label('Période')
+                        ->options([
+                            'last_month'  => 'Mois dernier',
+                            'this_month'  => 'Ce mois-ci',
+                            'last_7days'  => '7 derniers jours',
+                            'last_30days' => '30 derniers jours',
+                            'custom'      => 'Personnalisée',
+                        ])
+                        ->default('last_month')
+                        ->required()
+                        ->live(),
+
+                    DatePicker::make('date_from')
+                        ->label('Du')
+                        ->visible(fn ($get) => $get('period') === 'custom')
+                        ->required(fn ($get) => $get('period') === 'custom'),
+
+                    DatePicker::make('date_to')
+                        ->label('Au')
+                        ->visible(fn ($get) => $get('period') === 'custom')
+                        ->required(fn ($get) => $get('period') === 'custom'),
+                ])
+                ->action(function (array $data): void {
+                    [$from, $to] = $this->resolvePeriod($data);
+                    $orgId    = Auth::user()?->organization_id;
+                    $userId   = Auth::id();
+                    $reportId = Str::uuid()->toString();
+                    $driver   = Driver::find($data['driver_id']);
+
+                    Report::create([
+                        'id'              => $reportId,
+                        'organization_id' => $orgId,
+                        'report_type'     => 'driver',
+                        'status'          => 'pending',
+                        'period_from'     => $from,
+                        'period_to'       => $to,
+                        'title'           => 'Rapport Conducteur — ' . ($driver ? $driver->first_name . ' ' . $driver->last_name : '') . ' — ' . $from->format('d/m/Y') . ' au ' . $to->format('d/m/Y'),
+                        'generated_by'    => $userId,
+                    ]);
+
+                    GenerateDriverReportJob::dispatch($reportId, $orgId, $data['driver_id'], $from, $to, $userId);
+
+                    Notification::make()->title('Rapport conducteur en cours')->body('Il sera disponible dans quelques secondes.')->success()->send();
                 }),
         ];
     }

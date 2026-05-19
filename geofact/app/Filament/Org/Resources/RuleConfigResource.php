@@ -5,6 +5,8 @@ namespace App\Filament\Org\Resources;
 use App\Filament\Org\Resources\RuleConfigResource\Pages;
 use App\Models\RuleConfig;
 use App\Rules\Engine\RuleConfigResolver;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -139,20 +141,8 @@ class RuleConfigResource extends Resource
                     ->label('Modifié')
                     ->since(),
             ])
-            ->headerActions([
-                Tables\Actions\CreateAction::make()
-                    ->label('Ajouter une surcharge')
-                    ->mutateFormDataUsing(function (array $data): array {
-                        $data['organization_id'] = Auth::user()?->organization_id;
-                        $data['updated_by']      = Auth::id();
-                        return $data;
-                    })
-                    ->after(function (RuleConfig $record): void {
-                        RuleConfigResolver::clearCache($record->rule_id, $record->organization_id);
-                    }),
-            ])
             ->actions([
-                Tables\Actions\EditAction::make()
+                EditAction::make()
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['updated_by'] = Auth::id();
                         return $data;
@@ -161,7 +151,7 @@ class RuleConfigResource extends Resource
                         RuleConfigResolver::clearCache($record->rule_id, $record->organization_id);
                     }),
 
-                Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->label('Réinitialiser')
                     ->modalHeading('Réinitialiser aux défauts système ?')
                     ->after(function (RuleConfig $record): void {
@@ -176,7 +166,8 @@ class RuleConfigResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListOrgRuleConfigs::route('/'),
+            'index'  => Pages\ListOrgRuleConfigs::route('/'),
+            'create' => Pages\CreateOrgRuleConfig::route('/create'),
         ];
     }
 }

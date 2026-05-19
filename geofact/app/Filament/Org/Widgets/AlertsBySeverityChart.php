@@ -10,7 +10,7 @@ class AlertsBySeverityChart extends ApexChartWidget
 {
     protected static ?string $chartId = 'alertsBySeverity';
     protected static ?string $heading = 'Alertes par sévérité';
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 4;
     protected static ?int $contentHeight = 280;
     protected int|string|array $columnSpan = 1;
 

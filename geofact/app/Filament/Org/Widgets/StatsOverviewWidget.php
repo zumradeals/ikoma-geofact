@@ -8,6 +8,7 @@ use App\Models\Trip;
 use App\Models\Vehicle;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class StatsOverviewWidget extends BaseWidget
@@ -39,6 +40,11 @@ class StatsOverviewWidget extends BaseWidget
             ->where('status', 'active')
             ->count();
 
+        $kmThisWeek = (float) Trip::where('organization_id', $orgId)
+            ->whereIn('status', ['completed', 'anomalous'])
+            ->where('started_at', '>=', Carbon::today()->subDays(7))
+            ->sum('distance_km');
+
         return [
             Stat::make('Véhicules actifs', $activeVehicles)
                 ->description('Flotte opérationnelle')
@@ -59,6 +65,11 @@ class StatsOverviewWidget extends BaseWidget
                 ->description('Disponibles')
                 ->descriptionIcon('heroicon-m-user-circle')
                 ->color('primary'),
+
+            Stat::make('KM cette semaine', number_format($kmThisWeek, 0, ',', ' ') . ' km')
+                ->description('Trajets complétés (7 jours)')
+                ->descriptionIcon('heroicon-m-arrow-trending-up')
+                ->color($kmThisWeek > 0 ? 'success' : 'gray'),
         ];
     }
 }

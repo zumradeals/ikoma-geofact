@@ -57,19 +57,29 @@
             <div class="flex items-center gap-2">
                 @if(!$existing)
                 {{-- Formulaire de mapping --}}
-                <div class="flex items-center gap-2">
-                    <select wire:model="selectedVehicles.{{ $unit['id'] }}"
-                            class="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-orange-400 focus:border-orange-400">
-                        <option value="">— Véhicule IKOMA —</option>
-                        @foreach($vehicles as $v)
-                        <option value="{{ $v->id }}">{{ $v->name }} {{ $v->license_plate ? '('.$v->license_plate.')' : '' }}</option>
-                        @endforeach
-                    </select>
+                <div class="flex flex-col gap-2">
+                    {{-- Auto-créer et mapper en 1 clic --}}
                     <button type="button"
-                            wire:click="mapUnit({{ $unit['id'] }}, '{{ addslashes($unit['name']) }}')"
-                            class="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors">
-                        Mapper
+                            wire:click="autoMapUnit({{ $unit['id'] }}, '{{ addslashes($unit['name']) }}')"
+                            wire:confirm="Créer automatiquement un véhicule depuis « {{ $unit['name'] }} » et le mapper ?"
+                            class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                        ⚡ Auto-créer et mapper
                     </button>
+                    {{-- Ou choisir un véhicule existant --}}
+                    <div class="flex items-center gap-2">
+                        <select wire:model="selectedVehicles.{{ $unit['id'] }}"
+                                class="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-orange-400 focus:border-orange-400">
+                            <option value="">— Véhicule existant —</option>
+                            @foreach($vehicles as $v)
+                            <option value="{{ $v->id }}">{{ $v->name }} {{ $v->plate ? '('.$v->plate.')' : '' }}</option>
+                            @endforeach
+                        </select>
+                        <button type="button"
+                                wire:click="mapUnit({{ $unit['id'] }}, '{{ addslashes($unit['name']) }}')"
+                                class="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors">
+                            Mapper
+                        </button>
+                    </div>
                 </div>
                 @else
                 {{-- Toggle + Supprimer --}}

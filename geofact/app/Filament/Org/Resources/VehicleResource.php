@@ -10,6 +10,10 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Actions\Action as TableAction;
+use Filament\Actions\BulkAction;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 
@@ -126,8 +130,36 @@ class VehicleResource extends Resource
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                TableAction::make('delete')
+                    ->label('Supprimer')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Supprimer ce véhicule ?')
+                    ->modalDescription('Les alertes, trajets et événements liés seront également supprimés.')
+                    ->action(fn (Vehicle $record) => static::deleteVehicleCascade($record)),
             ])
-            ->bulkActions([]);
+            ->bulkActions([
+                BulkAction::make('delete_selected')
+                    ->label('Supprimer la sélection')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Supprimer les véhicules sélectionnés ?')
+                    ->modalDescription('Les alertes, trajets et événements liés seront également supprimés.')
+                    ->action(fn (Collection $records) => $records->each(fn ($r) => static::deleteVehicleCascade($r))),
+            ]);
+    }
+
+    public static function deleteVehicleCascade(Vehicle $vehicle): void
+    {
+        $id = $vehicle->id;
+        DB::table('wialon_unit_mappings')->where('ikoma_vehicle_id', $id)->update(['ikoma_vehicle_id' => null]);
+        DB::table('alerts')->where('vehicle_id', $id)->delete();
+        DB::table('trips')->where('vehicle_id', $id)->delete();
+        DB::table('telemetry_events')->where('vehicle_id', $id)->delete();
+        DB::table('devices')->where('vehicle_id', $id)->update(['vehicle_id' => null]);
+        $vehicle->delete();
     }
 
     public static function getPages(): array

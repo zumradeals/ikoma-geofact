@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Auth;
 
 class CriticalAlertsWidget extends BaseWidget
 {
-    protected static ?int $sort = 5;
+    protected static ?int $sort = 6;
     protected static ?string $heading = 'Alertes critiques non résolues';
     protected int|string|array $columnSpan = 'full';
     protected static ?string $pollingInterval = '20s';
