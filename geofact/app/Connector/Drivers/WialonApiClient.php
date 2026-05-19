@@ -153,11 +153,19 @@ class WialonApiClient
             Log::error('geofact.wialon.get_messages.bad_status', [
                 'unit_id' => $unitId,
                 'status'  => $response->status(),
+                'body'    => substr($response->body(), 0, 300),
             ]);
             return [];
         }
 
         $body = $response->json();
+
+        Log::debug('geofact.wialon.get_messages.raw', [
+            'unit_id' => $unitId,
+            'keys'    => array_keys($body ?? []),
+            'error'   => $body['error'] ?? null,
+            'count'   => $body['count'] ?? null,
+        ]);
 
         // Wialon retourne {count: N, messages: [...]} ou une erreur {error: N}
         if (isset($body['error'])) {

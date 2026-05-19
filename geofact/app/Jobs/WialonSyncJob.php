@@ -118,6 +118,13 @@ class WialonSyncJob
             return; // Continue avec les autres unités
         }
 
+        Log::info('geofact.wialon.sync.messages_fetched', [
+            'unit_id'  => $unitId,
+            'count'    => count($messages),
+            'from_ts'  => $fromTs,
+            'to_ts'    => $nowTs,
+        ]);
+
         if (empty($messages)) {
             return;
         }
