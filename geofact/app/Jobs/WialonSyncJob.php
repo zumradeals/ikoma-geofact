@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Connector\ConnectorPipeline;
 use App\Connector\Drivers\WialonApiClient;
 use App\Models\Connector;
+use App\Models\Device;
 use App\Models\WialonUnitMapping;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Request;
@@ -135,11 +136,25 @@ class WialonSyncJob
             return;
         }
 
-        $deviceId = 'wialon_' . $unitId;
+        // Garantit l'existence d'un Device pour satisfaire la FK telemetry_events.device_id
+        $device = Device::firstOrCreate(
+            [
+                'organization_id' => $connector->organization_id,
+                'imei'            => 'wialon_' . $unitId,
+            ],
+            [
+                'id'          => \Illuminate\Support\Str::uuid()->toString(),
+                'vehicle_id'  => $mapping->ikoma_vehicle_id,
+                'provider_id' => 'wialon',
+                'status'      => 'active',
+                'created_by'  => null,
+            ]
+        );
 
         try {
-            $payload               = $client->flattenMessage($lmsg, $unitId, $deviceId);
+            $payload               = $client->flattenMessage($lmsg, $unitId, $device->id);
             $payload['event_type'] = 'telemetry.position.updated';
+            $payload['device_id']  = $device->id;
 
             if ($mapping->ikoma_vehicle_id) {
                 $payload['vehicle_id'] = $mapping->ikoma_vehicle_id;
