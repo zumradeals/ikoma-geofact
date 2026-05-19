@@ -8,8 +8,11 @@ use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 
@@ -126,8 +129,17 @@ class VehicleResource extends Resource
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                DeleteAction::make()
+                    ->modalHeading('Supprimer ce véhicule ?')
+                    ->modalDescription('Cette action est irréversible. Les trajets et alertes liés resteront en base.'),
             ])
-            ->bulkActions([]);
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->modalHeading('Supprimer les véhicules sélectionnés ?')
+                        ->modalDescription('Action irréversible. Sélectionnez uniquement les véhicules à retirer.'),
+                ]),
+            ]);
     }
 
     public static function getPages(): array
