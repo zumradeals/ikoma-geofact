@@ -3,27 +3,25 @@
 namespace App\Filament\Org\Resources\KpiRecordResource\Pages;
 
 use App\Filament\Org\Resources\KpiRecordResource;
+use Filament\Infolists;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
-use Filament\Forms;
 
 class ViewKpiRecord extends ViewRecord
 {
     protected static string $resource = KpiRecordResource::class;
 
-    public function form(Schema $schema): Schema
+    public function infolist(Schema $schema): Schema
     {
         return $schema->schema([
-            Forms\Components\Grid::make(2)->schema([
-                Forms\Components\TextInput::make('kpi_type')->label('Type KPI')->disabled(),
-                Forms\Components\TextInput::make('mode')->label('Mode')->disabled(),
-                Forms\Components\TextInput::make('scope_type')->label('Scope type')->disabled(),
-                Forms\Components\TextInput::make('scope_id')->label('Scope ID')->disabled(),
-                Forms\Components\TextInput::make('value')->label('Valeur')->disabled(),
-                Forms\Components\TextInput::make('unit')->label('Unité')->disabled(),
-                Forms\Components\TextInput::make('version')->label('Version')->disabled(),
-                Forms\Components\TextInput::make('computed_at')->label('Calculé le')->disabled(),
-            ]),
+            Infolists\Components\TextEntry::make('kpi_type')->label('Type KPI'),
+            Infolists\Components\TextEntry::make('mode')->label('Mode'),
+            Infolists\Components\TextEntry::make('scope_type')->label('Scope type'),
+            Infolists\Components\TextEntry::make('scope_id')->label('Scope ID'),
+            Infolists\Components\TextEntry::make('value')->label('Valeur'),
+            Infolists\Components\TextEntry::make('unit')->label('Unité'),
+            Infolists\Components\TextEntry::make('version')->label('Version'),
+            Infolists\Components\TextEntry::make('computed_at')->label('Calculé le')->dateTime('d/m/Y H:i'),
         ]);
     }
 }
