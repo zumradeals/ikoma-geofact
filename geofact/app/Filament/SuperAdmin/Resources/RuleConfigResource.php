@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources;
 use App\Filament\SuperAdmin\Resources\RuleConfigResource\Pages;
 use App\Models\RuleConfig;
 use App\Rules\Engine\RuleConfigResolver;
+use Filament\Actions\EditAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -133,7 +134,7 @@ class RuleConfigResource extends Resource
                     ->since(),
             ])
             ->actions([
-                Tables\Actions\EditAction::make()
+                EditAction::make()
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['updated_by'] = Auth::id();
                         return $data;

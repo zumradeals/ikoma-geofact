@@ -5,6 +5,8 @@ namespace App\Filament\Org\Resources;
 use App\Filament\Org\Resources\RuleConfigResource\Pages;
 use App\Models\RuleConfig;
 use App\Rules\Engine\RuleConfigResolver;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -140,7 +142,7 @@ class RuleConfigResource extends Resource
                     ->since(),
             ])
             ->actions([
-                Tables\Actions\EditAction::make()
+                EditAction::make()
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['updated_by'] = Auth::id();
                         return $data;
@@ -149,7 +151,7 @@ class RuleConfigResource extends Resource
                         RuleConfigResolver::clearCache($record->rule_id, $record->organization_id);
                     }),
 
-                Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->label('Réinitialiser')
                     ->modalHeading('Réinitialiser aux défauts système ?')
                     ->after(function (RuleConfig $record): void {
