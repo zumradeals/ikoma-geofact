@@ -13,10 +13,16 @@ use Illuminate\Support\Facades\Log;
 class WialonApiClient
 {
     private string $baseUrl;
+    private string $token;
 
-    public function __construct()
+    /**
+     * @param string|null $token   Token Wialon — priorité : paramètre > config('wialon.token')
+     * @param string|null $baseUrl URL de base — priorité : paramètre > config('wialon.base_url')
+     */
+    public function __construct(?string $token = null, ?string $baseUrl = null)
     {
-        $this->baseUrl = rtrim(config('wialon.base_url', 'https://hosting.wialon.com'), '/');
+        $this->baseUrl = rtrim($baseUrl ?? config('wialon.base_url', 'https://hosting.wialon.com'), '/');
+        $this->token   = $token ?? (string) config('wialon.token', '');
     }
 
     /**
@@ -26,11 +32,11 @@ class WialonApiClient
      */
     public function login(): string
     {
-        $token = config('wialon.token');
+        $token = $this->token;
 
         if (empty($token)) {
             Log::error('geofact.wialon.login.missing_token');
-            throw new \RuntimeException('WIALON_TOKEN non configuré.');
+            throw new \RuntimeException('Token Wialon non configuré pour ce connecteur.');
         }
 
         try {

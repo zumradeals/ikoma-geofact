@@ -26,6 +26,7 @@ class Connector extends Model
         'certified_at',
         'status',
         'contract_versions',
+        'provider_config',
         'last_sync_at',
         'created_at',
         'updated_at',
@@ -36,11 +37,17 @@ class Connector extends Model
 
     protected $casts = [
         'contract_versions' => 'array',
+        'provider_config'   => 'encrypted:array',
         'certified_at'      => 'datetime',
         'last_sync_at'      => 'datetime',
         'created_at'        => 'datetime',
         'updated_at'        => 'datetime',
     ];
+
+    public function getProviderConfigValue(string $key, mixed $default = null): mixed
+    {
+        return ($this->provider_config ?? [])[$key] ?? $default;
+    }
 
     public function organization(): BelongsTo
     {

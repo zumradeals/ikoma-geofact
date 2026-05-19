@@ -43,17 +43,28 @@ class WialonSyncJob implements ShouldQueue
             return;
         }
 
-        $client = new WialonApiClient();
-
-        // Tentative de login — partagée entre tous les connectors (même token Wialon)
-        try {
-            $sid = $client->login();
-        } catch (\Throwable $e) {
-            Log::error('geofact.wialon.sync.login_failed', ['error' => $e->getMessage()]);
-            return;
-        }
-
+        // Chaque connector a son propre token Wialon — on les traite séparément
         foreach ($connectors as $connector) {
+            $wialonToken   = $connector->getProviderConfigValue('wialon_token');
+            $wialonBaseUrl = $connector->getProviderConfigValue('wialon_base_url');
+
+            if (empty($wialonToken)) {
+                Log::warning('geofact.wialon.sync.missing_token', ['connector_id' => $connector->id]);
+                continue;
+            }
+
+            $client = new WialonApiClient($wialonToken, $wialonBaseUrl);
+
+            try {
+                $sid = $client->login();
+            } catch (\Throwable $e) {
+                Log::error('geofact.wialon.sync.login_failed', [
+                    'connector_id' => $connector->id,
+                    'error'        => $e->getMessage(),
+                ]);
+                continue;
+            }
+
             $this->syncConnector($pipeline, $client, $connector, $sid);
         }
 
