@@ -2,8 +2,7 @@
     {{-- Polling Livewire 30s : rafraîchit les données sans recharger la carte --}}
     <div wire:poll.30000ms="$refresh" style="display:none"></div>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" crossorigin="" />
 
     {{-- Stats summary --}}
     <div class="grid grid-cols-2 gap-4 mb-4 sm:grid-cols-4">
@@ -48,56 +47,59 @@
     </div>
     @endif
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js" crossorigin=""></script>
     <script>
-    (function () {
+    function ikomaInitMap() {
+        if (typeof L === 'undefined') {
+            setTimeout(ikomaInitMap, 200);
+            return;
+        }
+        var el = document.getElementById('vehicle-map');
+        if (!el) return;
+
         var vehicles = {!! $vehiclesJson !!};
         var geoZones = {!! $geoZonesJson !!};
 
         var defaultLat = 5.3599517;
         var defaultLng = -4.0082563;
-        var defaultZoom = 12;
+        var defaultZoom = 7;
 
-        if (vehicles.length > 0) {
+        if (vehicles.length > 0 && vehicles[0].lat) {
             defaultLat = vehicles[0].lat;
             defaultLng = vehicles[0].lng;
+            defaultZoom = 14;
         }
 
-        // Initialise la carte une seule fois — le polling Livewire met à jour les compteurs
-        // sans détruire la carte Leaflet déjà rendue
         if (window._ikomaMap) {
-            // Mise à jour des marqueurs uniquement
-            window._ikomaMarkers.forEach(function (m) { window._ikomaMap.removeLayer(m); });
-            window._ikomaMarkers = [];
-        } else {
-            window._ikomaMap = L.map('vehicle-map').setView([defaultLat, defaultLng], defaultZoom);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            }).addTo(window._ikomaMap);
-            window._ikomaMarkers = [];
-
-            // Overlay GeoZones (rendu une seule fois)
-            geoZones.forEach(function (z) {
-                if (!z.geometry) return;
-                var g = z.geometry;
-                var opts = { color: '#1e3a5f', fillColor: '#1e3a5f', fillOpacity: 0.1, weight: 1.5 };
-                var popup = '<strong>' + z.name + '</strong><br><small>' + z.type + '</small>';
-                var layer = null;
-
-                if (g.type === 'circle' && g.center && g.radius) {
-                    layer = L.circle(g.center, Object.assign({}, opts, { radius: g.radius }));
-                } else if (g.type === 'polygon' && g.coordinates) {
-                    layer = L.polygon(g.coordinates, opts);
-                } else if (g.type === 'rectangle' && g.bounds) {
-                    layer = L.rectangle(g.bounds, opts);
-                }
-                if (layer) layer.addTo(window._ikomaMap).bindPopup(popup);
-            });
+            try { window._ikomaMap.remove(); } catch(e) {}
+            window._ikomaMap = null;
+            window._ikomaFitted = false;
         }
 
-        var map = window._ikomaMap;
+        var map = L.map('vehicle-map', { zoomControl: true }).setView([defaultLat, defaultLng], defaultZoom);
+        window._ikomaMap = map;
+        window._ikomaMarkers = [];
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        geoZones.forEach(function (z) {
+            if (!z.geometry) return;
+            var g = z.geometry;
+            var opts = { color: '#1e3a5f', fillColor: '#1e3a5f', fillOpacity: 0.1, weight: 1.5 };
+            var popup = '<strong>' + z.name + '</strong><br><small>' + z.type + '</small>';
+            var layer = null;
+            if (g.type === 'circle' && g.center && g.radius) {
+                layer = L.circle(g.center, Object.assign({}, opts, { radius: g.radius }));
+            } else if (g.type === 'polygon' && g.coordinates) {
+                layer = L.polygon(g.coordinates, opts);
+            } else if (g.type === 'rectangle' && g.bounds) {
+                layer = L.rectangle(g.bounds, opts);
+            }
+            if (layer) layer.addTo(map).bindPopup(popup);
+        });
 
         function makeIcon(heading) {
             var rotation = heading || 0;
@@ -109,7 +111,6 @@
         }
 
         var bounds = [];
-
         vehicles.forEach(function (v) {
             if (!v.lat || !v.lng) return;
             var latlng = [v.lat, v.lng];
@@ -117,7 +118,7 @@
             var ts    = v.ts ? new Date(v.ts).toLocaleString('fr-FR') : '—';
             var speed = v.speed !== null ? v.speed.toFixed(1) + ' km/h' : '—';
             var popup = '<div style="min-width:160px;font-family:sans-serif">'
-                + '<div style="font-weight:700;font-size:14px;color:#1e3a5f;border-bottom:2px solid #f97316;padding-bottom:4px;margin-bottom:6px">' + v.plate + '</div>'
+                + '<div style="font-weight:700;font-size:14px;color:#1e3a5f;border-bottom:2px solid #f97316;padding-bottom:4px;margin-bottom:6px">' + (v.plate || '—') + '</div>'
                 + '<table style="font-size:12px;width:100%;border-collapse:collapse">'
                 + '<tr><td style="color:#666;padding:1px 4px 1px 0">Nom</td><td style="font-weight:600">' + (v.name || '—') + '</td></tr>'
                 + '<tr><td style="color:#666;padding:1px 4px 1px 0">Flotte</td><td>' + (v.fleet || '—') + '</td></tr>'
@@ -128,13 +129,21 @@
             window._ikomaMarkers.push(marker);
         });
 
-        if (bounds.length > 1 && !window._ikomaFitted) {
-            map.fitBounds(bounds, { padding: [30, 30] });
-            window._ikomaFitted = true;
-        } else if (bounds.length === 1 && !window._ikomaFitted) {
+        if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [40, 40] });
+        } else if (bounds.length === 1) {
             map.setView(bounds[0], 14);
-            window._ikomaFitted = true;
         }
-    })();
+
+        setTimeout(function () { map.invalidateSize(); }, 300);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ikomaInitMap);
+    } else {
+        ikomaInitMap();
+    }
+
+    document.addEventListener('livewire:navigated', ikomaInitMap);
     </script>
 </x-filament-panels::page>
