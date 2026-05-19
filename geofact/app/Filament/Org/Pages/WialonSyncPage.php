@@ -6,6 +6,7 @@ use App\Connector\Drivers\WialonApiClient;
 use App\Models\Connector;
 use App\Models\Vehicle;
 use App\Models\WialonUnitMapping;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +23,7 @@ class WialonSyncPage extends Page
 
     public function getViewData(): array
     {
-        $orgId      = Auth::user()?->organization_id;
+        $orgId      = Filament::getTenant()?->id ?? Auth::user()?->organization_id;
         $units      = [];
         $wialonError = null;
 
@@ -66,7 +67,7 @@ class WialonSyncPage extends Page
 
     public function mapUnit(int $wialonUnitId, string $wialonUnitName, string $vehicleId): void
     {
-        $orgId = Auth::user()?->organization_id;
+        $orgId = Filament::getTenant()?->id ?? Auth::user()?->organization_id;
 
         $connector = Connector::where('organization_id', $orgId)
             ->where('provider_id', 'wialon')
