@@ -23,7 +23,7 @@ class FleetDataCollector
         // Véhicules localisés (au moins 1 event GPS sur la période)
         $localizedIds = TelemetryEvent::where('organization_id', $orgId)
             ->whereNotNull('latitude')
-            ->whereBetween('ts', [$from, $to])
+            ->whereBetween('ts', [$from->timestamp, $to->timestamp])
             ->distinct()
             ->pluck('vehicle_id');
 
@@ -69,7 +69,7 @@ class FleetDataCollector
         $avgSpeed = TelemetryEvent::where('organization_id', $orgId)
             ->whereNotNull('speed_kmh')
             ->where('speed_kmh', '>', 0)
-            ->whereBetween('ts', [$from, $to])
+            ->whereBetween('ts', [$from->timestamp, $to->timestamp])
             ->avg('speed_kmh');
 
         // KPI records DF existants pour la période

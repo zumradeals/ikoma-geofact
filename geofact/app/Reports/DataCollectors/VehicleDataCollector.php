@@ -43,12 +43,12 @@ class VehicleDataCollector
         $avgSpeed = TelemetryEvent::where('vehicle_id', $vehicleId)
             ->whereNotNull('speed_kmh')
             ->where('speed_kmh', '>', 0)
-            ->whereBetween('ts', [$from, $to])
+            ->whereBetween('ts', [$from->timestamp, $to->timestamp])
             ->avg('speed_kmh');
 
         $maxSpeed = TelemetryEvent::where('vehicle_id', $vehicleId)
             ->whereNotNull('speed_kmh')
-            ->whereBetween('ts', [$from, $to])
+            ->whereBetween('ts', [$from->timestamp, $to->timestamp])
             ->max('speed_kmh');
 
         $activeDays = $trips->groupBy(fn ($t) => $t->started_at->format('Y-m-d'))->count();
@@ -83,7 +83,7 @@ class VehicleDataCollector
             'alerts_low'        => $alertsBySeverity['LOW'] ?? 0,
             'alerts_by_rule'    => $alertsByRule,
             'alerts_unresolved' => $alerts->whereIn('status', ['open', 'triggered', 'delivered'])->count(),
-            'last_seen_at'      => $lastEvent?->ts?->format('d/m/Y H:i') ?? '—',
+            'last_seen_at'      => $lastEvent ? Carbon::createFromTimestamp($lastEvent->ts)->format('d/m/Y H:i') : '—',
             'trips_detail'      => $trips->map(fn ($t) => [
                 'date'     => $t->started_at->format('d/m/Y'),
                 'distance' => round((float) $t->distance_km, 1),
