@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Org\Pages\EditOrgProfile;
 use App\Filament\Org\Pages\OrgDashboard;
+use App\Filament\Org\Pages\WialonSyncPage;
 use App\Filament\Org\Widgets\AlertsBySeverityChart;
 use App\Filament\Org\Widgets\AlertsTrendChart;
 use App\Filament\Org\Widgets\CriticalAlertsWidget;
@@ -50,7 +51,7 @@ class OrgPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Org/Resources'), for: 'App\Filament\Org\Resources')
             ->discoverPages(in: app_path('Filament/Org/Pages'), for: 'App\Filament\Org\Pages')
             ->discoverWidgets(in: app_path('Filament/Org/Widgets'), for: 'App\Filament\Org\Widgets')
-            ->pages([OrgDashboard::class])
+            ->pages([OrgDashboard::class, WialonSyncPage::class])
             ->widgets([
                 AccountWidget::class,
                 StatsOverviewWidget::class,
