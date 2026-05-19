@@ -89,7 +89,7 @@ class WialonApiClient
                         'sortType'     => 'sys_name',
                     ],
                     'force'     => 1,
-                    'flags'     => 0x101, // base + last message
+                    'flags'     => 0x3FF, // max flags pour inclure lmsg
                     'from'      => 0,
                     'to'        => 0,
                 ]),
@@ -107,6 +107,15 @@ class WialonApiClient
 
         $body  = $response->json();
         $items = $body['items'] ?? [];
+
+        // Log des clés du premier item pour diagnostiquer les flags disponibles
+        if (! empty($items)) {
+            Log::debug('geofact.wialon.get_units.item_keys', [
+                'keys' => array_keys($items[0]),
+                'lmsg' => $items[0]['lmsg'] ?? 'absent',
+                'pos'  => $items[0]['pos']  ?? 'absent',
+            ]);
+        }
 
         $units = [];
         foreach ($items as $item) {
