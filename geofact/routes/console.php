@@ -49,6 +49,14 @@ Schedule::call(function () {
     $engine->computeBehavioralAnalysis($from, $to, $runId);
 })->monthlyOn(1, '03:00')->name('kpi.monthly_report')->withoutOverlapping();
 
+// ── Insight Engine IA — Génération quotidienne (C-06) ────────────────────────
+// Lancé après les KPI DF (01h00/01h30) pour avoir des données fraîches.
+// Scope : flotte + top 5 véhicules actifs par organisation.
+Schedule::job(new \App\Jobs\GenerateInsightsJob())
+    ->dailyAt('03:30')
+    ->name('insight.daily_generation')
+    ->withoutOverlapping();
+
 // ── Delivery Engine — Escalade des Alerts non-acquittées (C-07) ───────────────
 Schedule::job(new EscalateUnacknowledgedAlerts())
     ->everyThirtyMinutes()

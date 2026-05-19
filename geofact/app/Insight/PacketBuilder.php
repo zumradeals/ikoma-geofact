@@ -4,11 +4,13 @@ namespace App\Insight;
 
 use App\Models\Alert;
 use App\Models\KpiRecord;
+use App\Models\Trip;
 use Carbon\Carbon;
 
 /**
  * Construit le paquet structuré envoyé à l'IA.
  * Contrat C-06 : jamais de données brutes (raw_store) transmises à l'IA.
+ * Inclut : KPIs calculés + alertes + données de trajets agrégées.
  */
 class PacketBuilder
 {
@@ -21,17 +23,19 @@ class PacketBuilder
     ): array {
         $kpis   = $this->loadKpis($scopeType, $scopeId, $from, $to);
         $alerts = $this->loadAlerts($scopeType, $scopeId, $organizationId, $from, $to);
+        $trips  = $this->loadTripStats($scopeType, $scopeId, $organizationId, $from, $to);
 
         return [
-            'scope_type'      => $scopeType,
-            'scope_id'        => $scopeId,
-            'organization_id' => $organizationId,
-            'period_from'     => $from->toIso8601String(),
-            'period_to'       => $to->toIso8601String(),
-            'kpis'            => $kpis,
-            'alerts'          => $alerts,
-            'source_kpi_ids'  => array_column($kpis, 'id'),
-            'source_event_ids'=> array_column($alerts, 'id'),
+            'scope_type'       => $scopeType,
+            'scope_id'         => $scopeId,
+            'organization_id'  => $organizationId,
+            'period_from'      => $from->toIso8601String(),
+            'period_to'        => $to->toIso8601String(),
+            'kpis'             => $kpis,
+            'alerts'           => $alerts,
+            'trips'            => $trips,
+            'source_kpi_ids'   => array_column($kpis, 'id'),
+            'source_event_ids' => array_column($alerts, 'id'),
         ];
     }
 
@@ -58,7 +62,6 @@ class PacketBuilder
             ->orderByDesc('triggered_at')
             ->limit(30);
 
-        // Filtre selon le niveau de scope
         match($scopeType) {
             'vehicle' => $query->where('vehicle_id', $scopeId),
             'driver'  => $query->where('driver_id', $scopeId),
@@ -68,5 +71,39 @@ class PacketBuilder
 
         return $query->get(['id', 'event_type', 'severity', 'status', 'triggered_at'])
             ->toArray();
+    }
+
+    private function loadTripStats(
+        string $scopeType,
+        string $scopeId,
+        string $organizationId,
+        Carbon $from,
+        Carbon $to
+    ): array {
+        $query = Trip::where('organization_id', $organizationId)
+            ->whereIn('status', ['completed', 'anomalous'])
+            ->whereBetween('started_at', [$from, $to]);
+
+        match($scopeType) {
+            'vehicle' => $query->where('vehicle_id', $scopeId),
+            'driver'  => $query->where('driver_id', $scopeId),
+            'fleet'   => $query->where('fleet_id', $scopeId),
+            default   => null,
+        };
+
+        $trips = $query->get(['distance_km', 'duration_minutes', 'status', 'started_at']);
+
+        if ($trips->isEmpty()) {
+            return ['total' => 0];
+        }
+
+        return [
+            'total'            => $trips->count(),
+            'completed'        => $trips->where('status', 'completed')->count(),
+            'anomalous'        => $trips->where('status', 'anomalous')->count(),
+            'total_km'         => round((float) $trips->sum('distance_km'), 1),
+            'avg_km_per_trip'  => round((float) $trips->avg('distance_km'), 1),
+            'avg_duration_min' => round((float) $trips->avg('duration_minutes'), 0),
+        ];
     }
 }

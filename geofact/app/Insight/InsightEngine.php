@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Log;
 class InsightEngine implements InsightEngineInterface
 {
     private const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-    private const MODEL              = 'claude-sonnet-4-20250514';
+    private const MODEL              = 'claude-sonnet-4-6';
     private const TIMEOUT_SECONDS   = 30;
 
     private const SYSTEM_PROMPT = <<<'PROMPT'
@@ -48,17 +48,24 @@ PROMPT;
     ) {}
 
     /**
-     * Implémentation InsightEngineInterface (C-06).
-     * Génère un Insight pour le scope donné sur les 7 derniers jours par défaut.
+     * Génère un Insight pour un scope donné — période et orgId explicites.
+     * Signature étendue pour compatibilité InsightResource et jobs schedulés.
      */
-    public function generate(string $scopeType, string $scopeId): ?Insight
-    {
+    public function generate(
+        string $scopeType,
+        string $scopeId,
+        string $organizationId = '',
+        ?Carbon $from = null,
+        ?Carbon $to   = null,
+        string $language = 'fr'
+    ): ?Insight {
         return $this->generateForPeriod(
             $scopeType,
             $scopeId,
-            organizationId: '',   // résolu via PacketBuilder en contexte caller
-            from: now()->subDays(7)->startOfDay(),
-            to: now()->endOfDay(),
+            $organizationId,
+            $from ?? now()->subDays(7)->startOfDay(),
+            $to   ?? now()->endOfDay(),
+            $language,
         );
     }
 

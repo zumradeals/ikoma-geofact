@@ -121,13 +121,13 @@ class InsightResource extends Resource
                             $record->scope_id,
                             $orgId,
                             Carbon::now()->subDays(7),
-                            Carbon::now()
+                            Carbon::now(),
                         );
 
                         if ($insight) {
-                            Notification::make()->title('Insight généré avec succès')->success()->send();
+                            Notification::make()->title('Insight généré — v' . $insight->version)->success()->send();
                         } else {
-                            Notification::make()->title('IA indisponible — réessayez plus tard')->warning()->send();
+                            Notification::make()->title('IA indisponible ou données insuffisantes')->warning()->send();
                         }
                     }),
             ])
