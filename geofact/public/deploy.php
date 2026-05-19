@@ -13,7 +13,22 @@
  */
 
 // ── Configuration ────────────────────────────────────────────────────────────
-define('DEPLOY_SECRET',  getenv('DEPLOY_WEBHOOK_SECRET') ?: 'CHANGEZ_CE_SECRET_ICI');
+
+// Lit DEPLOY_WEBHOOK_SECRET depuis le .env Laravel (hors bootstrap Laravel)
+function readDotEnvSecret(): string
+{
+    $envFile = dirname(__DIR__) . '/.env';
+    if (! is_readable($envFile)) return '';
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if (str_starts_with(trim($line), '#')) continue;
+        if (str_starts_with($line, 'DEPLOY_WEBHOOK_SECRET=')) {
+            return trim(substr($line, strlen('DEPLOY_WEBHOOK_SECRET=')), " \t\"'");
+        }
+    }
+    return '';
+}
+
+define('DEPLOY_SECRET',  getenv('DEPLOY_WEBHOOK_SECRET') ?: readDotEnvSecret() ?: 'CHANGEZ_CE_SECRET_ICI');
 define('DEPLOY_BRANCH',  'master');
 define('REPO_RAW_BASE',  'https://raw.githubusercontent.com/zumradeals/ikoma-geofact');
 define('REPO_SUBFOLDER', 'geofact');             // sous-dossier dans le dépôt
