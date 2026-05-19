@@ -13,8 +13,8 @@ return new class extends Migration
             $table->char('id', 36)->primary();
             $table->char('organization_id', 36);
             $table->string('name', 150);
-            $table->enum('fleet_type', ['transport', 'mining', 'maintenance', 'executive', 'regional', 'custom'])->default('transport');
-            $table->enum('status', ['active', 'suspended', 'archived', 'deleted'])->default('active');
+            $table->enum('fleet_type', ['urban', 'intercity', 'logistics', 'passenger', 'mixed', 'transport', 'mining', 'maintenance', 'executive', 'regional', 'custom'])->nullable();
+            $table->enum('status', ['active', 'inactive', 'suspended', 'archived', 'deleted'])->default('active');
             $table->char('created_by', 36);
             $table->dateTime('created_at')->useCurrent();
             $table->dateTime('updated_at')->useCurrent()->useCurrentOnUpdate();
