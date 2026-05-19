@@ -108,9 +108,9 @@ class WialonApiClient
         $body  = $response->json();
         $items = $body['items'] ?? [];
 
-        // Log des clés du premier item pour diagnostiquer les flags disponibles
+        // Log du premier item pour diagnostiquer les flags disponibles
         if (! empty($items)) {
-            Log::debug('geofact.wialon.get_units.item_keys', [
+            Log::info('geofact.wialon.get_units.item_keys', [
                 'keys' => array_keys($items[0]),
                 'lmsg' => $items[0]['lmsg'] ?? 'absent',
                 'pos'  => $items[0]['pos']  ?? 'absent',
