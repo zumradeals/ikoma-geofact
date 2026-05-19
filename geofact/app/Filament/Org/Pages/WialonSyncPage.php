@@ -26,11 +26,19 @@ class WialonSyncPage extends Page
         $units      = [];
         $wialonError = null;
 
-        if (! config('wialon.token')) {
-            $wialonError = 'WIALON_TOKEN absent du fichier .env — ajoutez-le sur le serveur.';
+        $connector = Connector::where('organization_id', $orgId)
+            ->where('provider_id', 'wialon')
+            ->where('status', 'active')
+            ->first();
+
+        $wialonToken   = $connector?->getProviderConfigValue('wialon_token') ?? config('wialon.token');
+        $wialonBaseUrl = $connector?->getProviderConfigValue('wialon_base_url');
+
+        if (empty($wialonToken)) {
+            $wialonError = 'Token Wialon non configuré — demandez au SuperAdmin de le saisir dans /admin → Connecteurs → modifier le connecteur Wialon.';
         } else {
             try {
-                $client = new WialonApiClient();
+                $client = new WialonApiClient($wialonToken, $wialonBaseUrl);
                 $sid    = $client->login();
                 $units  = $client->getUnits($sid);
             } catch (\Throwable $e) {

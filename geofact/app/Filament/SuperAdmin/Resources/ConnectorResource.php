@@ -42,7 +42,8 @@ class ConnectorResource extends Resource
             Forms\Components\TextInput::make('provider_id')
                 ->label('Fournisseur GPS')
                 ->required()
-                ->maxLength(100),
+                ->maxLength(100)
+                ->live(),
 
             Forms\Components\Select::make('connector_type')
                 ->label('Type')
@@ -67,7 +68,26 @@ class ConnectorResource extends Resource
 
             Forms\Components\Placeholder::make('token_note')
                 ->label('')
-                ->content('Le token est généré automatiquement à la création. Il ne peut être consulté qu\'une seule fois.'),
+                ->content('Le token IKOMA est généré automatiquement à la création. Il ne peut être consulté qu\'une seule fois.'),
+
+            Forms\Components\Section::make('Configuration fournisseur')
+                ->description('Identifiants spécifiques au fournisseur GPS (chiffrés en base).')
+                ->schema([
+                    Forms\Components\TextInput::make('provider_config.wialon_token')
+                        ->label('Token API Wialon')
+                        ->password()
+                        ->revealable()
+                        ->placeholder('Coller le token Wialon ici')
+                        ->helperText('Trouvez ce token dans votre compte Wialon → Paramètres utilisateur → Token.')
+                        ->visible(fn (Forms\Get $get) => $get('provider_id') === 'wialon'),
+
+                    Forms\Components\TextInput::make('provider_config.wialon_base_url')
+                        ->label('URL de base Wialon')
+                        ->default('https://hosting.wialon.com')
+                        ->placeholder('https://hosting.wialon.com')
+                        ->visible(fn (Forms\Get $get) => $get('provider_id') === 'wialon'),
+                ])
+                ->visible(fn (Forms\Get $get) => in_array($get('provider_id'), ['wialon'])),
         ]);
     }
 
