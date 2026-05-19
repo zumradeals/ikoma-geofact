@@ -104,7 +104,8 @@ class WialonSyncJob
         int               $nowTs
     ): void {
         $unitId   = $mapping->wialon_unit_id;
-        $fromTs   = $mapping->last_message_ts ?? ($nowTs - config('wialon.interval', 30));
+        // Premier sync (NULL) : remonter 24h pour récupérer la dernière position connue
+        $fromTs   = $mapping->last_message_ts ?? ($nowTs - 86400);
         $deviceId = 'wialon_' . $unitId;
 
         try {
