@@ -104,7 +104,8 @@ class GeoZoneResource extends Resource
 
             Section::make('Aperçu carte')
                 ->schema([
-                    Forms\Components\View::make('filament.org.components.geozone-map-preview'),
+                    \Filament\Forms\Components\ViewField::make('map_preview')
+                        ->view('filament.org.components.geozone-map-preview'),
                 ])
                 ->visible(fn ($record) => $record !== null),
         ]);
