@@ -37,16 +37,39 @@ class Connector extends Model
 
     protected $casts = [
         'contract_versions' => 'array',
-        'provider_config'   => 'encrypted:array',
         'certified_at'      => 'datetime',
         'last_sync_at'      => 'datetime',
         'created_at'        => 'datetime',
         'updated_at'        => 'datetime',
     ];
 
+    public function getProviderConfigAttribute(?string $value): array
+    {
+        if (empty($value)) {
+            return [];
+        }
+        try {
+            return json_decode(decrypt($value), true) ?? [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    public function setProviderConfigAttribute(mixed $value): void
+    {
+        if (empty($value)) {
+            $this->attributes['provider_config'] = null;
+            return;
+        }
+        $arr = is_array($value) ? $value : (array) $value;
+        // Ne pas chiffrer les valeurs vides
+        $arr = array_filter($arr, fn ($v) => $v !== null && $v !== '');
+        $this->attributes['provider_config'] = empty($arr) ? null : encrypt(json_encode($arr));
+    }
+
     public function getProviderConfigValue(string $key, mixed $default = null): mixed
     {
-        return ($this->provider_config ?? [])[$key] ?? $default;
+        return $this->provider_config[$key] ?? $default;
     }
 
     public function organization(): BelongsTo
