@@ -72,8 +72,9 @@ class WialonApiClient
 
     /**
      * Liste toutes les unités Wialon accessibles via cette session.
+     * flags=0x101 (1=base + 256=last message with position) pour inclure lmsg.
      *
-     * @return array<int, array{id: int, name: string, lastMessage: array|null}>
+     * @return array<int, array{id: int, name: string, last_pos: array|null}>
      */
     public function getUnits(string $sid): array
     {
@@ -88,7 +89,7 @@ class WialonApiClient
                         'sortType'     => 'sys_name',
                     ],
                     'force'     => 1,
-                    'flags'     => 1,
+                    'flags'     => 0x101, // base + last message
                     'from'      => 0,
                     'to'        => 0,
                 ]),
@@ -109,10 +110,19 @@ class WialonApiClient
 
         $units = [];
         foreach ($items as $item) {
+            $lmsg = $item['lmsg'] ?? null;
+            $pos  = $lmsg['pos'] ?? null;
+
             $units[] = [
-                'id'          => (int) ($item['id'] ?? 0),
-                'name'        => (string) ($item['nm'] ?? ''),
-                'lastMessage' => $item['lmsg'] ?? null,
+                'id'      => (int) ($item['id'] ?? 0),
+                'name'    => (string) ($item['nm'] ?? ''),
+                'last_pos' => $pos ? [
+                    'lat'   => $pos['y'] ?? null,
+                    'lon'   => $pos['x'] ?? null,
+                    'speed' => $pos['s'] ?? null,
+                    'ts'    => $lmsg['t'] ?? null,
+                ] : null,
+                'lmsg'    => $lmsg, // message brut pour le sync job
             ];
         }
 
