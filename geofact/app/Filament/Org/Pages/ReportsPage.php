@@ -13,6 +13,7 @@ use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportsPage extends Page
 {
@@ -20,7 +21,7 @@ class ReportsPage extends Page
     protected static ?int    $navigationSort = 2;
     protected string         $view           = 'filament.org.pages.reports';
 
-    public static function getNavigationIcon(): string  { return 'heroicon-o-document-chart-bar'; }
+    public static function getNavigationIcon(): string   { return 'heroicon-o-document-chart-bar'; }
     public static function getNavigationGroup(): ?string { return 'Analytique'; }
 
     public function getViewData(): array
@@ -94,16 +95,23 @@ class ReportsPage extends Page
         ];
     }
 
-    public function downloadReport(string $reportId): \Symfony\Component\HttpFoundation\StreamedResponse
+    // Téléchargement via Livewire — évite les problèmes de middleware sur cPanel
+    public function download(string $reportId): StreamedResponse
     {
         $report = Report::where('id', $reportId)
             ->where('organization_id', Auth::user()?->organization_id)
             ->where('status', 'ready')
             ->firstOrFail();
 
+        abort_unless(Storage::disk('local')->exists($report->file_path), 404, 'Fichier introuvable');
+
         $filename = Str::slug($report->title) . '.pdf';
 
-        return Storage::disk('local')->download($report->file_path, $filename);
+        return response()->streamDownload(
+            fn () => print(Storage::disk('local')->get($report->file_path)),
+            $filename,
+            ['Content-Type' => 'application/pdf']
+        );
     }
 
     private function resolvePeriod(array $data): array

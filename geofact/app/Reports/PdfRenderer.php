@@ -15,6 +15,7 @@ class PdfRenderer
         ])->setPaper('a4', 'portrait');
 
         $path = 'reports/' . $reportId . '.pdf';
+        Storage::disk('local')->makeDirectory('reports');
         Storage::disk('local')->put($path, $pdf->output());
 
         return $path;
