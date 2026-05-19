@@ -89,7 +89,7 @@ class WialonApiClient
                         'sortType'     => 'sys_name',
                     ],
                     'force'     => 1,
-                    'flags'     => 0x401, // 0x1=base + 0x400=last message (lmsg)
+                    'flags'     => 0x481, // 0x1=base + 0x80=last known pos + 0x400=last message (lmsg)
                     'from'      => 0,
                     'to'        => 0,
                 ]),
@@ -119,8 +119,15 @@ class WialonApiClient
 
         $units = [];
         foreach ($items as $item) {
-            $lmsg = $item['lmsg'] ?? null;
-            $pos  = $lmsg['pos'] ?? null;
+            $lmsg    = $item['lmsg'] ?? null;
+            $unitPos = $item['pos']  ?? null; // dernière position connue (flag 0x80)
+
+            // Fallback : si lmsg n'a pas de pos (ex. message d'allumage), injecter la dernière position connue
+            if ($lmsg && ! isset($lmsg['pos']) && $unitPos) {
+                $lmsg['pos'] = $unitPos;
+            }
+
+            $pos = $lmsg['pos'] ?? null;
 
             $units[] = [
                 'id'      => (int) ($item['id'] ?? 0),
