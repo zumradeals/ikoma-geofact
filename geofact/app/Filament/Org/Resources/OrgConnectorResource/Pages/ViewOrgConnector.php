@@ -3,25 +3,30 @@
 namespace App\Filament\Org\Resources\OrgConnectorResource\Pages;
 
 use App\Filament\Org\Resources\OrgConnectorResource;
+use Filament\Infolists;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
-use Filament\Forms;
 
 class ViewOrgConnector extends ViewRecord
 {
     protected static string $resource = OrgConnectorResource::class;
 
-    public function form(Schema $schema): Schema
+    public function infolist(Schema $schema): Schema
     {
         return $schema->schema([
-            Forms\Components\Grid::make(2)->schema([
-                Forms\Components\TextInput::make('provider_id')->label('Fournisseur')->disabled(),
-                Forms\Components\TextInput::make('connector_type')->label('Type')->disabled(),
-                Forms\Components\TextInput::make('status')->label('Statut')->disabled(),
-                Forms\Components\TextInput::make('token_version')->label('Version token')->disabled(),
-                Forms\Components\TextInput::make('last_sync_at')->label('Dernière sync')->disabled(),
-                Forms\Components\TextInput::make('certified_at')->label('Certifié le')->disabled(),
-            ]),
+            Infolists\Components\TextEntry::make('provider_id')->label('Fournisseur GPS'),
+            Infolists\Components\TextEntry::make('connector_type')->label('Type')->badge(),
+            Infolists\Components\TextEntry::make('status')->label('Statut')->badge()
+                ->color(fn (string $state) => match ($state) {
+                    'active'  => 'success',
+                    'revoked' => 'danger',
+                    default   => 'gray',
+                }),
+            Infolists\Components\TextEntry::make('token_version')->label('Version token'),
+            Infolists\Components\TextEntry::make('last_sync_at')->label('Dernière sync')
+                ->dateTime('d/m/Y H:i')->placeholder('Jamais'),
+            Infolists\Components\TextEntry::make('certified_at')->label('Certifié le')
+                ->date('d/m/Y')->placeholder('—'),
         ]);
     }
 }
