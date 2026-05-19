@@ -12,7 +12,7 @@ class AlertsTrendChart extends ApexChartWidget
 {
     protected static ?string $chartId = 'alertsTrend';
     protected static ?string $heading = 'Évolution des alertes — 7 derniers jours';
-    protected static ?int $sort = 6;
+    protected static ?int $sort = 7;
     protected static ?int $contentHeight = 280;
     protected int|string|array $columnSpan = 2;
     protected ?string $pollingInterval = '20s';

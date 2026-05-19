@@ -12,7 +12,7 @@ class VehicleActivityChart extends ApexChartWidget
 {
     protected static ?string $chartId = 'vehicleActivity';
     protected static ?string $heading = 'Activité véhicules — 7 derniers jours';
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 3;
     protected static ?int $contentHeight = 280;
     protected int|string|array $columnSpan = 2;
 
