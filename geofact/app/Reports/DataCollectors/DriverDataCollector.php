@@ -29,9 +29,8 @@ class DriverDataCollector
         $vehicleIds   = $trips->pluck('vehicle_id')->unique();
 
         $alerts = Alert::where('organization_id', $orgId)
-            ->whereIn('vehicle_id', $vehicleIds)
+            ->where('driver_id', $driverId)
             ->whereBetween('triggered_at', [$from, $to])
-            ->whereIn('trip_id', $trips->pluck('id'))
             ->get();
 
         $alertsBySeverity = $alerts->groupBy('severity')->map->count()->toArray();
@@ -40,12 +39,12 @@ class DriverDataCollector
         $avgSpeed = TelemetryEvent::whereIn('vehicle_id', $vehicleIds)
             ->whereNotNull('speed_kmh')
             ->where('speed_kmh', '>', 0)
-            ->whereBetween('ts', [$from, $to])
+            ->whereBetween('ts', [$from->timestamp, $to->timestamp])
             ->avg('speed_kmh');
 
         $maxSpeed = TelemetryEvent::whereIn('vehicle_id', $vehicleIds)
             ->whereNotNull('speed_kmh')
-            ->whereBetween('ts', [$from, $to])
+            ->whereBetween('ts', [$from->timestamp, $to->timestamp])
             ->max('speed_kmh');
 
         $activeDays     = $trips->groupBy(fn ($t) => $t->started_at->format('Y-m-d'))->count();
