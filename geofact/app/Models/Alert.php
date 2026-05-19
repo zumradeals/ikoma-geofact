@@ -35,6 +35,7 @@ class Alert extends Model
         'resolution_note',
         'escalated_at',
         'payload',
+        'dedup_key',
         'created_at',
     ];
 

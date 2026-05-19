@@ -24,23 +24,26 @@ class RS02_SuspiciousStopRule implements RuleInterface
 
     public function applies(CanonicalEvent $event): bool
     {
-        return $event->eventType === 'vehicle.stopped' && $event->vehicleId !== null;
+        // S'applique sur tout event de position — détecte l'arrêt prolongé via speed+ignition
+        return $event->vehicleId !== null
+            && isset($event->payload['speed_kmh'])
+            && ((float) $event->payload['speed_kmh']) <= 0
+            && (($event->payload['ignition'] ?? null) == false || ($event->payload['ignition'] ?? null) === null);
     }
 
     public function evaluate(CanonicalEvent $event): ?Alert
     {
-        // Cherche le dernier événement vehicle.stopped pour ce véhicule
-        $lastStop = TelemetryEvent::where('vehicle_id', $event->vehicleId)
-            ->where('event_type', 'vehicle.stopped')
-            ->where('id', '!=', $event->eventId)
+        // Cherche le dernier event avec speed > 0 pour calculer depuis quand le véhicule est arrêté
+        $lastMoving = TelemetryEvent::where('vehicle_id', $event->vehicleId)
+            ->where('speed_kmh', '>', 0)
             ->orderByDesc('ts')
             ->first();
 
-        if (! $lastStop) {
+        if (! $lastMoving) {
             return null;
         }
 
-        $stopSince   = $lastStop->ts;
+        $stopSince    = $lastMoving->ts;
         $elapsedHours = $stopSince->diffInHours(now());
 
         if ($elapsedHours < $this->thresholdHours) {

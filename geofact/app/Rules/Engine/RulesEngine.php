@@ -63,6 +63,23 @@ class RulesEngine implements RulesEngineInterface
         $persisted = [];
         foreach ($merged as $alert) {
             try {
+                // Dedup : une seule alerte active par (vehicle_id, rule_id) dans la fenêtre 1h
+                $dedupKey = $alert->vehicle_id . '|' . $alert->rule_id;
+                $alert->dedup_key = $dedupKey;
+
+                $recentExists = Alert::where('dedup_key', $dedupKey)
+                    ->where('triggered_at', '>=', now()->subHour())
+                    ->whereIn('status', ['open', 'triggered', 'delivered'])
+                    ->exists();
+
+                if ($recentExists) {
+                    Log::info('geofact.rules.alert_deduped', [
+                        'dedup_key' => $dedupKey,
+                        'rule_id'   => $alert->rule_id,
+                    ]);
+                    continue;
+                }
+
                 $alert->save();
                 $persisted[] = $alert;
                 event(new AlertTriggered($alert));

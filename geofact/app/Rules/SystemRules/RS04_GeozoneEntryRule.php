@@ -65,9 +65,9 @@ class RS04_GeozoneEntryRule implements RuleInterface
     {
         $type = $geometry['type'] ?? null;
 
-        return match($type) {
-            'Circle'  => $this->isInsideCircle($lat, $lng, $geometry),
-            'Polygon' => $this->isInsidePolygon($lat, $lng, $geometry['coordinates'][0] ?? []),
+        return match(strtolower((string) $type)) {
+            'circle'  => $this->isInsideCircle($lat, $lng, $geometry),
+            'polygon' => $this->isInsidePolygon($lat, $lng, $geometry['coordinates'][0] ?? []),
             default   => false,
         };
     }
