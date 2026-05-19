@@ -6,16 +6,20 @@ use App\Core\Canonical\CanonicalEvent;
 use App\Models\Alert;
 use App\Models\GeoZone;
 use App\Rules\Contracts\RuleInterface;
+use App\Rules\Engine\RuleConfigResolver;
 use Illuminate\Support\Str;
 
 class RS04_GeozoneEntryRule implements RuleInterface
 {
-    public function getRuleId(): string { return 'RS04'; }
+    public function __construct(private RuleConfigResolver $resolver) {}
+
+    public function getRuleId(): string  { return 'RS04'; }
     public function getRuleType(): string { return 'RS'; }
 
     public function applies(CanonicalEvent $event): bool
     {
-        return isset($event->payload['latitude'], $event->payload['longitude']);
+        return isset($event->payload['latitude'], $event->payload['longitude'])
+            && $this->resolver->isEnabled('RS04', $event->organizationId);
     }
 
     public function evaluate(CanonicalEvent $event): ?Alert

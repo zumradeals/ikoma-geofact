@@ -13,19 +13,21 @@ use Illuminate\Support\Facades\Log;
 
 class SystemRulesEvaluator
 {
+    public function __construct(private RuleConfigResolver $resolver) {}
+
     /**
      * Évalue les 5 règles système dans l'ordre RS01→RS05.
-     * Toutes les RS applicables sont évaluées — pas de court-circuit entre RS (C-04.6).
+     * Toutes les RS applicables sont évaluées — pas de court-circuit (C-04.6).
      *
      * @return Alert[]
      */
     public function evaluate(CanonicalEvent $event): array
     {
         $rules = [
-            new RS01_OverspeedRule(),
-            new RS02_SuspiciousStopRule(),
+            new RS01_OverspeedRule($this->resolver),
+            new RS02_SuspiciousStopRule($this->resolver),
             new RS03_HarshBrakingRule(),
-            new RS04_GeozoneEntryRule(),
+            new RS04_GeozoneEntryRule($this->resolver),
             new RS05_MaintenanceThresholdRule(),
         ];
 
@@ -49,8 +51,7 @@ class SystemRulesEvaluator
                     ]);
                 }
             } catch (\Throwable $e) {
-                // Une RS en erreur ne bloque pas les autres — loggué, jamais silencieux
-                Log::error('geofact.rules.system.evaluation_failed', [
+                Log::error('geofact.rules.system.rule_error', [
                     'rule_id'  => $rule->getRuleId(),
                     'event_id' => $event->eventId,
                     'error'    => $e->getMessage(),
