@@ -50,7 +50,9 @@ class DriverScoreChart extends ApexChartWidget
                     SUM(CASE WHEN severity = 'HIGH'     THEN 1 ELSE 0 END) as high_cnt,
                     SUM(CASE WHEN severity = 'MEDIUM'   THEN 1 ELSE 0 END) as medium_cnt")
                 ->groupBy('driver_id')
-                ->orderByRaw('(critical_cnt * 10 + high_cnt * 5 + medium_cnt * 2) ASC')
+                ->orderByRaw("(SUM(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END) * 10
+                             + SUM(CASE WHEN severity = 'HIGH'     THEN 1 ELSE 0 END) * 5
+                             + SUM(CASE WHEN severity = 'MEDIUM'   THEN 1 ELSE 0 END) * 2) ASC")
                 ->limit(5)
                 ->get();
 
