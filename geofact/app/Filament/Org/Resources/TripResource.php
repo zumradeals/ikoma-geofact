@@ -6,6 +6,7 @@ use App\Filament\Org\Pages\TripReplayPage;
 use App\Filament\Org\Resources\TripResource\Pages;
 use App\Models\Trip;
 use Illuminate\Support\Facades\Auth;
+use Filament\Infolists;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -32,6 +33,92 @@ class TripResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([]);
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema->schema([
+            Infolists\Components\Section::make('Informations générales')
+                ->columns(2)
+                ->schema([
+                    Infolists\Components\TextEntry::make('vehicle.plate')
+                        ->label('Véhicule'),
+
+                    Infolists\Components\TextEntry::make('driver.first_name')
+                        ->label('Conducteur')
+                        ->formatStateUsing(fn (?string $state, Trip $record) =>
+                            $record->driver
+                                ? "{$record->driver->first_name} {$record->driver->last_name}"
+                                : '—'
+                        ),
+
+                    Infolists\Components\TextEntry::make('status')
+                        ->label('Statut')
+                        ->badge()
+                        ->color(fn (string $state) => match ($state) {
+                            'active'    => 'success',
+                            'paused'    => 'warning',
+                            'anomalous' => 'danger',
+                            default     => 'gray',
+                        }),
+
+                    Infolists\Components\TextEntry::make('fleet.name')
+                        ->label('Flotte')
+                        ->default('—'),
+                ]),
+
+            Infolists\Components\Section::make('Chronologie')
+                ->columns(2)
+                ->schema([
+                    Infolists\Components\TextEntry::make('started_at')
+                        ->label('Départ')
+                        ->dateTime('d/m/Y H:i'),
+
+                    Infolists\Components\TextEntry::make('ended_at')
+                        ->label('Arrivée')
+                        ->dateTime('d/m/Y H:i')
+                        ->placeholder('En cours'),
+
+                    Infolists\Components\TextEntry::make('duration_minutes')
+                        ->label('Durée')
+                        ->formatStateUsing(fn (?int $state) => $state ? "{$state} min" : '—'),
+
+                    Infolists\Components\TextEntry::make('distance_km')
+                        ->label('Distance')
+                        ->formatStateUsing(fn (?string $state) =>
+                            $state ? number_format((float) $state, 1) . ' km' : '—'
+                        ),
+                ]),
+
+            Infolists\Components\Section::make('Coordonnées')
+                ->columns(2)
+                ->schema([
+                    Infolists\Components\TextEntry::make('start_latitude')
+                        ->label('Latitude départ')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('start_longitude')
+                        ->label('Longitude départ')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('end_latitude')
+                        ->label('Latitude arrivée')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('end_longitude')
+                        ->label('Longitude arrivée')
+                        ->placeholder('—'),
+                ]),
+
+            Infolists\Components\Section::make('Anomalie')
+                ->schema([
+                    Infolists\Components\TextEntry::make('anomaly_note')
+                        ->label('Note d\'anomalie')
+                        ->placeholder('Aucune')
+                        ->columnSpanFull(),
+                ])
+                ->visible(fn (Trip $record) => $record->anomaly_note !== null),
+        ]);
     }
 
     public static function table(Table $table): Table
