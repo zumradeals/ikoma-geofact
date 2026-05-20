@@ -202,16 +202,22 @@ class WialonSyncJob
 
             if ($latestTs) {
                 $mapping->update(['last_message_ts' => $latestTs]);
+                Log::info('geofact.wialon.sync.history_done', [
+                    'unit_id'   => $unitId,
+                    'processed' => $processed,
+                    'from_ts'   => $fromTs,
+                    'to_ts'     => $nowTs,
+                ]);
+                return;
             }
 
-            Log::info('geofact.wialon.sync.history_done', [
+            // getMessages a retourné des messages mais aucun n'avait de position GPS
+            // (messages heartbeat / ignition sans coordonnées) — on tombe sur lmsg
+            Log::info('geofact.wialon.sync.no_gps_in_messages', [
                 'unit_id'   => $unitId,
-                'processed' => $processed,
+                'msg_count' => count($messages),
                 'from_ts'   => $fromTs,
-                'to_ts'     => $nowTs,
             ]);
-
-            return;
         }
 
         // Fallback lmsg si getMessages() retourne vide (permission insuffisante ou aucun mouvement)
