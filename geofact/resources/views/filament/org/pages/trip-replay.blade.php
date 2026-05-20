@@ -1,6 +1,5 @@
 <x-filament-panels::page>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.min.css" />
 
     {{-- Trip info header --}}
     <div class="grid grid-cols-2 gap-4 mb-4 sm:grid-cols-4">
@@ -56,8 +55,7 @@
         <div id="replay-map" style="height:100%;width:100%;position:absolute;top:0;left:0;"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
+    <script src="/vendor/leaflet/leaflet.min.js"></script>
     <script>
     var POINTS = {!! $pointsJson !!};
 
