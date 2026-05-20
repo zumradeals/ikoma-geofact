@@ -61,6 +61,10 @@ Route::prefix('v1')->group(function () {
         // Insights
         Route::get('insights/{scopeType}/{scopeId}',          [\App\Http\Controllers\Api\V1\InsightController::class, 'show']);
         Route::post('insights/{scopeType}/{scopeId}/generate', [\App\Http\Controllers\Api\V1\InsightController::class, 'generate']);
+
+        // Telemetry — ingest direct via API (hors connecteur Wialon)
+        Route::post('telemetry',                [\App\Http\Controllers\Api\V1\TelemetryController::class, 'ingest']);
+        Route::get('telemetry/{vehicleId}',     [\App\Http\Controllers\Api\V1\TelemetryController::class, 'recent']);
     });
 
     // Webhook Connector — authentifié par connector.auth (pas de JWT humain)
