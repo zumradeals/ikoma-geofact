@@ -12,7 +12,7 @@
              data-vehicles="{!! htmlspecialchars($vehiclesJson, ENT_QUOTES) !!}"
              style="display:none"></div>
 
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" crossorigin="" />
+        <link rel="stylesheet" href="/vendor/leaflet/leaflet.min.css" />
 
         <div style="height:380px;border-radius:8px;position:relative;">
             <div id="ikoma-dash-map" style="height:100%;width:100%;position:absolute;top:0;left:0;border-radius:8px;"></div>
@@ -38,7 +38,7 @@
             }
         </style>
 
-        <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js" crossorigin=""></script>
+        <script src="/vendor/leaflet/leaflet.min.js"></script>
         <script>
             (function () {
                 function initMap() {
