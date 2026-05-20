@@ -100,7 +100,7 @@ class TripResource extends Resource
                     ->label('Replay')
                     ->icon('heroicon-o-play')
                     ->color('success')
-                    ->url(fn (Trip $record) => TripReplayPage::getUrl(['trip' => $record->id]))
+                    ->url(fn (Trip $record) => TripReplayPage::getUrl(['trip' => $record->id], tenant: auth()->user()?->organization))
                     ->visible(fn (Trip $record) => in_array($record->status, ['completed', 'anomalous'])),
             ])
             ->bulkActions([]);
