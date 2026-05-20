@@ -19,32 +19,20 @@ class LiveMapWidget extends Widget
     {
         $orgId = Auth::user()?->organization_id;
 
-        $latestByVehicle = TelemetryEvent::where('organization_id', $orgId)
+        // Dernière position connue par véhicule via sous-requête correlated
+        $positions = TelemetryEvent::where('organization_id', $orgId)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
-            ->selectRaw('vehicle_id, MAX(ts) as max_ts')
-            ->groupBy('vehicle_id')
+            ->whereRaw('ts = (
+                SELECT MAX(t2.ts)
+                FROM telemetry_events t2
+                WHERE t2.vehicle_id = telemetry_events.vehicle_id
+                  AND t2.organization_id = telemetry_events.organization_id
+                  AND t2.latitude IS NOT NULL
+                  AND t2.longitude IS NOT NULL
+            )')
             ->get()
             ->keyBy('vehicle_id');
-
-        $positions = collect();
-        if ($latestByVehicle->isNotEmpty()) {
-            $vehicleTsMap = $latestByVehicle->map(fn ($r) => $r->max_ts);
-
-            $positions = TelemetryEvent::where('organization_id', $orgId)
-                ->whereNotNull('latitude')
-                ->whereNotNull('longitude')
-                ->where(function ($q) use ($vehicleTsMap) {
-                    foreach ($vehicleTsMap as $vehicleId => $maxTs) {
-                        $q->orWhere(fn ($sub) => $sub
-                            ->where('vehicle_id', $vehicleId)
-                            ->where('ts', $maxTs)
-                        );
-                    }
-                })
-                ->get()
-                ->keyBy('vehicle_id');
-        }
 
         $vehicles = Vehicle::where('organization_id', $orgId)
             ->where('status', 'active')
