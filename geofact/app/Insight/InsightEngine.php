@@ -141,9 +141,20 @@ PROMPT;
             return $this->fallback->handle($scopeType, $scopeId, 'anthropic_unavailable', $e);
         }
 
-        // Étape 3 — Parse JSON
-        $parsed = json_decode($rawResponse, true);
+        // Étape 3 — Parse JSON (nettoie les éventuelles balises markdown de Claude)
+        $cleaned = trim($rawResponse);
+        if (str_starts_with($cleaned, '```')) {
+            $cleaned = preg_replace('/^```(?:json)?\s*/i', '', $cleaned);
+            $cleaned = preg_replace('/\s*```$/', '', $cleaned);
+            $cleaned = trim($cleaned);
+        }
+        $parsed = json_decode($cleaned, true);
         if (! is_array($parsed)) {
+            Log::warning('geofact.insight.json_parse_failed', [
+                'scope_type' => $scopeType,
+                'scope_id'   => $scopeId,
+                'raw_prefix' => substr($rawResponse, 0, 200),
+            ]);
             return $this->fallback->handle($scopeType, $scopeId, 'json_parse_failed');
         }
 
@@ -217,7 +228,7 @@ PROMPT;
             ],
             'json' => [
                 'model'      => self::MODEL,
-                'max_tokens' => 512,
+                'max_tokens' => 1024,
                 'system'     => $systemPrompt,
                 'messages'   => [
                     ['role' => 'user', 'content' => $userMessage],
