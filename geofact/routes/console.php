@@ -78,3 +78,89 @@ Schedule::job(new \App\Jobs\TripDetectorJob())
     ->everyTwoMinutes()
     ->name('core.trip_detector')
     ->withoutOverlapping();
+
+// ── Backfill Trajets — Reconstitue l'historique depuis telemetry_events ───────
+Artisan::command('trips:backfill {--from=} {--to=} {--vehicle=} {--force}', function () {
+    $from  = Carbon::parse($this->option('from') ?? now()->subDay()->format('Y-m-d'))->startOfDay();
+    $to    = Carbon::parse($this->option('to')   ?? now()->format('Y-m-d'))->endOfDay();
+    $force = $this->option('force');
+    $this->info("Backfill : {$from->format('d/m/Y')} → {$to->format('d/m/Y')}");
+
+    $query = \App\Models\Vehicle::where('status', 'active');
+    if ($plate = $this->option('vehicle')) {
+        $query->where(fn ($q) => $q->where('plate', $plate)->orWhere('id', $plate));
+    }
+    $vehicles = $query->get();
+    $this->info("Véhicules : {$vehicles->count()}");
+    $totalCreated = 0;
+
+    foreach ($vehicles as $v) {
+        if (! $force && \App\Models\Trip::where('vehicle_id', $v->id)->whereBetween('started_at', [$from, $to])->exists()) {
+            $this->line("  {$v->plate} — ignoré (trajets existants, utiliser --force)");
+            continue;
+        }
+        $events = DB::table('telemetry_events')
+            ->where('vehicle_id', $v->id)->whereNotNull('latitude')->whereNotNull('longitude')
+            ->whereBetween('ts', [$from, $to])->orderBy('ts')
+            ->get(['ts', 'latitude', 'longitude', 'speed_kmh', 'ignition']);
+        if ($events->isEmpty()) { $this->line("  {$v->plate} — pas de télémétrie"); continue; }
+
+        $all = $events->values()->all(); $cnt = count($all);
+        $state = 'IDLE'; $tripStart = null; $lastMvTs = null; $lastMvIdx = 0; $created = 0;
+
+        $closeTrip = function ($startE, $endE, $slice) use ($v, &$created) {
+            $pts = collect($slice); $dist = 0.0; $prev = null;
+            foreach ($pts as $p) {
+                if ($prev) {
+                    $dLat = deg2rad($p->latitude - $prev->latitude);
+                    $dLon = deg2rad($p->longitude - $prev->longitude);
+                    $a = sin($dLat / 2) ** 2 + cos(deg2rad($prev->latitude)) * cos(deg2rad($p->latitude)) * sin($dLon / 2) ** 2;
+                    $dist += 6371 * 2 * asin(sqrt($a));
+                }
+                $prev = $p;
+            }
+            $dur = max(1, (int) Carbon::parse($startE->ts)->diffInMinutes(Carbon::parse($endE->ts)));
+            \App\Models\Trip::create([
+                'id'               => Str::uuid()->toString(),
+                'vehicle_id'       => $v->id,
+                'organization_id'  => $v->organization_id,
+                'fleet_id'         => $v->fleet_id,
+                'status'           => $dist < 0.1 ? 'anomalous' : 'completed',
+                'started_at'       => $startE->ts,
+                'ended_at'         => $endE->ts,
+                'start_latitude'   => $startE->latitude,
+                'start_longitude'  => $startE->longitude,
+                'end_latitude'     => $endE->latitude,
+                'end_longitude'    => $endE->longitude,
+                'distance_km'      => round($dist, 3),
+                'duration_minutes' => $dur,
+                'anomaly_note'     => $dist < 0.1 ? 'micro_trip:distance_below_threshold' : null,
+            ]);
+            $created++;
+        };
+
+        for ($i = 0; $i < $cnt; $i++) {
+            $e = $all[$i]; $ts = Carbon::parse($e->ts);
+            $mv = ($e->speed_kmh > 0) || ($e->ignition == 1);
+            if ($state === 'IDLE') {
+                if ($mv) { $state = 'MOVING'; $tripStart = $e; $lastMvTs = $ts; $lastMvIdx = $i; }
+                continue;
+            }
+            if ($mv) { $lastMvTs = $ts; $lastMvIdx = $i; }
+            $gap     = $i > 0 ? Carbon::parse($all[$i - 1]->ts)->diffInMinutes($ts) : 0;
+            $stopped = $lastMvTs ? $ts->diffInMinutes($lastMvTs) : 0;
+            if ($gap >= 30 || $stopped >= 5) {
+                $si = 0; foreach ($all as $xi => $xe) { if ($xe === $tripStart) { $si = $xi; break; } }
+                $closeTrip($tripStart, $all[$lastMvIdx], array_slice($all, $si, $lastMvIdx - $si + 1));
+                $state = 'IDLE'; $tripStart = null; $lastMvTs = null;
+            }
+        }
+        if ($state === 'MOVING' && $tripStart && $lastMvTs) {
+            $si = 0; foreach ($all as $xi => $xe) { if ($xe === $tripStart) { $si = $xi; break; } }
+            $closeTrip($tripStart, $all[$lastMvIdx], array_slice($all, $si, $lastMvIdx - $si + 1));
+        }
+        $totalCreated += $created;
+        $this->line("  {$v->plate} — {$created} trajet(s) créé(s)");
+    }
+    $this->info("Total créés : {$totalCreated}");
+})->purpose('Reconstitue les trajets historiques depuis telemetry_events');
