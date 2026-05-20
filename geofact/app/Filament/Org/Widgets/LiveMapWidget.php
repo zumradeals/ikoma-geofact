@@ -53,6 +53,7 @@ class LiveMapWidget extends Widget
             ->values();
 
         return [
+            'vehicles'     => $vehicles->toArray(),
             'vehiclesJson' => $vehicles->toJson(),
             'withPos'      => $vehicles->where('has_pos', true)->count(),
             'total'        => $vehicles->count(),
