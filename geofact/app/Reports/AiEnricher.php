@@ -12,7 +12,7 @@ class AiEnricher
 
     public function __construct()
     {
-        $this->apiKey = config('services.anthropic.api_key', '');
+        $this->apiKey = config('services.anthropic.api_key') ?? env('ANTHROPIC_API_KEY', '');
         $this->model  = config('services.anthropic.model', 'claude-sonnet-4-6');
     }
 
