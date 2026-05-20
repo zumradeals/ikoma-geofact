@@ -97,18 +97,18 @@
       <div class="kpi-row">
         <div class="kpi-cell">
           <div class="kpi-value">{{ $data['total_trips'] }}</div>
-          <div class="kpi-label">Trajets</div>
+          <div class="kpi-label">Trajets complétés</div>
         </div>
         <div class="kpi-cell">
-          <div class="kpi-value">{{ $data['total_km'] }}</div>
+          <div class="kpi-value">{{ $data['total_km'] ?? '—' }}</div>
           <div class="kpi-label">Kilomètres</div>
         </div>
         <div class="kpi-cell">
-          <div class="kpi-value">{{ $data['total_hours'] }}</div>
+          <div class="kpi-value">{{ $data['total_hours'] ?? '—' }}</div>
           <div class="kpi-label">Heures de conduite</div>
         </div>
         <div class="kpi-cell">
-          <div class="kpi-value">{{ $data['active_days'] }}</div>
+          <div class="kpi-value">{{ $data['active_days'] ?: '—' }}</div>
           <div class="kpi-label">Jours actifs</div>
         </div>
       </div>
