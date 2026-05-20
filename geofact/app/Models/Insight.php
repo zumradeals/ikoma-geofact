@@ -24,6 +24,12 @@ class Insight extends Model
         'language',
         'insight_text',
         'confidence_level',
+        'trend_direction',
+        'risk_score',
+        'fleet_position',
+        'recommendations',
+        'follow_up_required',
+        'follow_up_days',
         'source_kpis',
         'source_events',
         'version',
@@ -31,9 +37,12 @@ class Insight extends Model
     ];
 
     protected $casts = [
-        'source_kpis'   => 'array',
-        'source_events' => 'array',
-        'generated_at'  => 'datetime',
+        'source_kpis'        => 'array',
+        'source_events'      => 'array',
+        'recommendations'    => 'array',
+        'follow_up_required' => 'boolean',
+        'risk_score'         => 'float',
+        'generated_at'       => 'datetime',
     ];
 
     public function organization(): BelongsTo

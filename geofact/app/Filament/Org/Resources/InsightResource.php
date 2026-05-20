@@ -73,6 +73,41 @@ class InsightResource extends Resource
                         default  => 'gray',
                     }),
 
+                Tables\Columns\TextColumn::make('trend_direction')
+                    ->label('Tendance')
+                    ->badge()
+                    ->color(fn (?string $state) => match ($state) {
+                        'improving' => 'success',
+                        'stable'    => 'info',
+                        'degrading' => 'danger',
+                        default     => 'gray',
+                    })
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'improving' => '↑ Amélioration',
+                        'stable'    => '→ Stable',
+                        'degrading' => '↓ Dégradation',
+                        default     => '—',
+                    }),
+
+                Tables\Columns\TextColumn::make('risk_score')
+                    ->label('Risque')
+                    ->badge()
+                    ->color(fn (?float $state) => match(true) {
+                        $state === null => 'gray',
+                        $state >= 7.0   => 'danger',
+                        $state >= 4.0   => 'warning',
+                        default         => 'success',
+                    })
+                    ->formatStateUsing(fn (?float $state) => $state !== null ? number_format($state, 1) . '/10' : '—'),
+
+                Tables\Columns\IconColumn::make('follow_up_required')
+                    ->label('Suivi')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-exclamation-triangle')
+                    ->trueColor('warning')
+                    ->falseIcon('heroicon-o-check-circle')
+                    ->falseColor('success'),
+
                 Tables\Columns\TextColumn::make('insight_text')
                     ->label('Insight')
                     ->limit(80)
@@ -102,6 +137,13 @@ class InsightResource extends Resource
                 Tables\Filters\SelectFilter::make('confidence_level')
                     ->label('Confiance')
                     ->options(['high' => 'Haute', 'medium' => 'Moyenne', 'low' => 'Faible']),
+
+                Tables\Filters\SelectFilter::make('trend_direction')
+                    ->label('Tendance')
+                    ->options(['improving' => 'Amélioration', 'stable' => 'Stable', 'degrading' => 'Dégradation']),
+
+                Tables\Filters\TernaryFilter::make('follow_up_required')
+                    ->label('Suivi requis'),
             ])
             ->actions([
                 ViewAction::make(),

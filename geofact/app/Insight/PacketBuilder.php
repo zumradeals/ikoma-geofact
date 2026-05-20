@@ -2,18 +2,33 @@
 
 namespace App\Insight;
 
+use App\Insight\KnowledgeBase\BenchmarkBuilder;
+use App\Insight\KnowledgeBase\MemoryBuilder;
+use App\Insight\KnowledgeBase\TrendBuilder;
 use App\Models\Alert;
 use App\Models\KpiRecord;
 use App\Models\Trip;
 use Carbon\Carbon;
 
 /**
- * Construit le paquet structuré envoyé à l'IA.
+ * Construit le paquet structuré envoyé à l'IA — IKOMA Intelligence.
+ *
  * Contrat C-06 : jamais de données brutes (raw_store) transmises à l'IA.
- * Inclut : KPIs calculés + alertes + données de trajets agrégées.
+ *
+ * Le paquet contient :
+ * - Données de la période courante (KPIs, alertes, trajets)
+ * - Mémoire des insights précédents (MemoryBuilder)
+ * - Tendances historiques 7/30/90 jours (TrendBuilder)
+ * - Positionnement dans la flotte (BenchmarkBuilder)
  */
 class PacketBuilder
 {
+    public function __construct(
+        private readonly MemoryBuilder    $memory,
+        private readonly TrendBuilder     $trends,
+        private readonly BenchmarkBuilder $benchmark,
+    ) {}
+
     public function build(
         string $scopeType,
         string $scopeId,
@@ -25,15 +40,28 @@ class PacketBuilder
         $alerts = $this->loadAlerts($scopeType, $scopeId, $organizationId, $from, $to);
         $trips  = $this->loadTripStats($scopeType, $scopeId, $organizationId, $from, $to);
 
+        // IKOMA Intelligence — couches de connaissance
+        $memory    = $this->memory->build($scopeType, $scopeId);
+        $trends    = $this->trends->build($scopeType, $scopeId, $organizationId);
+        $benchmark = $this->benchmark->build($scopeType, $scopeId, $organizationId);
+
         return [
             'scope_type'       => $scopeType,
             'scope_id'         => $scopeId,
             'organization_id'  => $organizationId,
             'period_from'      => $from->toIso8601String(),
             'period_to'        => $to->toIso8601String(),
+
+            // Données courantes
             'kpis'             => $kpis,
             'alerts'           => $alerts,
             'trips'            => $trips,
+
+            // Intelligence layers
+            'memory'           => $memory,
+            'trends'           => $trends,
+            'benchmark'        => $benchmark,
+
             'source_kpi_ids'   => array_column($kpis, 'id'),
             'source_event_ids' => array_column($alerts, 'id'),
         ];
