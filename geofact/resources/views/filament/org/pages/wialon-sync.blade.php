@@ -8,10 +8,27 @@
     </p>
 </div>
 @else
-<div class="mb-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4">
-    <p class="text-sm text-green-700 dark:text-green-300">
-        <strong>Wialon connecté</strong> — {{ count($units) }} unité(s) disponible(s). Synchronisation automatique toutes les minutes.
-    </p>
+<div class="mb-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <p class="text-sm text-green-700 dark:text-green-300 font-semibold">Wialon connecté — {{ count($units) }} unité(s) disponible(s)</p>
+        @if($lastSyncAt)
+            <p class="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                Dernier sync cron : {{ \Carbon\Carbon::parse($lastSyncAt)->diffForHumans() }}
+                @if(\Carbon\Carbon::parse($lastSyncAt)->diffInMinutes() > 5)
+                    <span class="ml-1 px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 text-xs font-semibold">⚠ Cron arrêté</span>
+                @endif
+            </p>
+        @else
+            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-0.5">⚠ Aucun sync automatique détecté — le cron cPanel n'est peut-être pas configuré.</p>
+        @endif
+    </div>
+    <button type="button"
+            wire:click="triggerSync"
+            wire:loading.attr="disabled"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white text-sm font-semibold rounded-xl shadow transition-colors">
+        <span wire:loading.remove wire:target="triggerSync">⚡ Sync maintenant</span>
+        <span wire:loading wire:target="triggerSync">⏳ Sync en cours…</span>
+    </button>
 </div>
 @endif
 
@@ -118,11 +135,24 @@
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
             @foreach($mappings as $mapping)
+            @php
+                $lastTs = $mapping->last_message_ts
+                    ? \Carbon\Carbon::createFromTimestamp($mapping->last_message_ts)
+                    : null;
+                $isStale = $lastTs && $lastTs->diffInHours() > 1;
+            @endphp
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                 <td class="py-3 px-4 font-medium text-gray-800 dark:text-gray-200">{{ $mapping->wialon_unit_name }}</td>
                 <td class="py-3 px-4 text-gray-600 dark:text-gray-400">{{ $mapping->vehicle?->name ?? '—' }}</td>
                 <td class="py-3 px-4 text-gray-500">
-                    {{ $mapping->last_message_ts ? \Carbon\Carbon::createFromTimestamp($mapping->last_message_ts)->diffForHumans() : 'Jamais' }}
+                    @if($lastTs)
+                        <span class="{{ $isStale ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400' }}">
+                            {{ $lastTs->diffForHumans() }}
+                        </span>
+                        <span class="text-xs text-gray-400 block">{{ $lastTs->format('d/m H:i') }}</span>
+                    @else
+                        <span class="text-gray-400 italic">Jamais synchronisé</span>
+                    @endif
                 </td>
                 <td class="py-3 px-4">
                     <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold

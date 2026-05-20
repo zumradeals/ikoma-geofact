@@ -82,12 +82,15 @@ class WialonSyncJob
             ->get();
 
         if ($mappings->isEmpty()) {
+            Log::warning('geofact.wialon.sync.no_mappings', ['connector_id' => $connector->id, 'org_id' => $orgId]);
             return;
         }
 
         // Une seule requête getUnits() pour toutes les unités — inclut lmsg (dernière position)
         $units   = $client->getUnits($sid);
         $unitMap = collect($units)->keyBy('id');
+
+        Log::info('geofact.wialon.sync.mappings_found', ['count' => $mappings->count(), 'units_from_api' => count($units)]);
 
         $now = now()->timestamp;
 
@@ -138,10 +141,10 @@ class WialonSyncJob
             ]
         );
 
-        // Fenêtre de temps : depuis le dernier message traité, max 2 heures en arrière
+        // Fenêtre de temps : depuis le dernier message traité, max 24h en arrière pour rattraper le retard
         $fromTs = $mapping->last_message_ts
             ? ((int) $mapping->last_message_ts + 1)
-            : ($nowTs - 7200);
+            : ($nowTs - 86400);
 
         // Tente getMessages() pour récupérer tous les points GPS de la période
         $messages = $client->getMessages($sid, (int) $unitId, $fromTs, $nowTs);
