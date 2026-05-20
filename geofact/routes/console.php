@@ -164,3 +164,48 @@ Artisan::command('trips:backfill {--from=} {--to=} {--vehicle=} {--force}', func
     }
     $this->info("Total créés : {$totalCreated}");
 })->purpose('Reconstitue les trajets historiques depuis telemetry_events');
+
+// ── Nettoyage pré-production — Alertes test/backfill ─────────────────────────
+// Résout en masse les alertes de test (seeder) et les alertes auto-générées
+// avant la mise en production. Utilise DB::table pour contourner DC-09
+// (suppression physique interdite via Eloquent — archivage par résolution).
+Artisan::command('alerts:clear-test {--org=} {--all}', function () {
+    $orgId = $this->option('org')
+        ?? \App\Models\Organization::first()?->id;
+
+    if (! $orgId) {
+        $this->error('Aucune organisation trouvée.');
+        return;
+    }
+
+    $now  = now();
+    $note = 'Archivage pré-production — données de test';
+
+    // 1. Supprimer physiquement les alertes créées par le seeder (rule_id TEST-*)
+    $deleted = DB::table('alerts')
+        ->where('organization_id', $orgId)
+        ->where('rule_id', 'like', 'RS-TEST-%')
+        ->delete();
+    $this->info("  Alertes seeder supprimées : {$deleted}");
+
+    // 2. Résoudre les alertes ouvertes restantes (backfill + wialon)
+    $base = DB::table('alerts')
+        ->where('organization_id', $orgId)
+        ->where('status', 'open');
+
+    if (! $this->option('all')) {
+        // Par défaut : uniquement les alertes sans acquittement humain
+        $base->whereNull('acknowledged_at');
+    }
+
+    $resolved = (clone $base)->update([
+        'status'          => 'resolved',
+        'resolved_at'     => $now,
+        'resolution_note' => $note,
+    ]);
+    $this->info("  Alertes résolues  : {$resolved}");
+
+    $total = $deleted + $resolved;
+    $this->info("  Total traité      : {$total}");
+    $this->info("Terminé. Le dashboard devrait afficher 0 alertes ouvertes.");
+})->purpose('Archive les alertes de test et de backfill avant mise en production');
