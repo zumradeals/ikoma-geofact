@@ -40,6 +40,7 @@
         <script>
             (function () {
                 function initMap() {
+                    if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
                     const container = document.getElementById('ikoma-dash-map');
                     const dataEl    = document.getElementById('ikoma-dash-map-data');
                     if (!container || !dataEl) return;
@@ -94,7 +95,7 @@
                         });
 
                         const tsLabel = v.ts
-                            ? new Date(v.ts * 1000).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+                            ? new Date(v.ts).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
                             : '—';
 
                         L.marker([v.lat, v.lng], { icon }).addTo(map)
@@ -105,9 +106,10 @@
                     });
                 }
 
-                document.addEventListener('DOMContentLoaded', initMap);
-                document.addEventListener('livewire:navigated', initMap);
-                document.addEventListener('livewire:update', function () { setTimeout(initMap, 80); });
+                // Lancer immédiatement (DOMContentLoaded peut être déjà passé en SPA Livewire)
+                setTimeout(initMap, 150);
+                document.addEventListener('livewire:navigated', function () { setTimeout(initMap, 150); });
+                document.addEventListener('livewire:updated',   function () { setTimeout(initMap, 150); });
             })();
         </script>
     </x-filament::section>

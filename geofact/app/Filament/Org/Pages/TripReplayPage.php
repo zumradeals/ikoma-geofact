@@ -6,7 +6,6 @@ use App\Models\TelemetryEvent;
 use App\Models\Trip;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\Url;
 
 class TripReplayPage extends Page
 {
@@ -15,29 +14,30 @@ class TripReplayPage extends Page
 
     protected string $view = 'filament.org.pages.trip-replay';
 
-    #[Url]
-    public string $trip = '';
+    public string $tripId = '';
 
     public function mount(): void
     {
-        $orgId = Auth::user()?->organization_id;
+        $tripParam = request()->query('trip', '');
+        $orgId     = Auth::user()?->organization_id;
 
         abort_unless(
-            $this->trip !== '' &&
-            Trip::where('id', $this->trip)->where('organization_id', $orgId)->exists(),
+            $tripParam !== '' &&
+            Trip::where('id', $tripParam)->where('organization_id', $orgId)->exists(),
             403
         );
+
+        $this->tripId = $tripParam;
     }
 
     public function getViewData(): array
     {
         $orgId = Auth::user()?->organization_id;
-        $trip  = Trip::where('id', $this->trip)
+        $trip  = Trip::where('id', $this->tripId)
             ->where('organization_id', $orgId)
             ->with(['vehicle', 'driver'])
             ->firstOrFail();
 
-        // Relie les points GPS via la fenêtre temporelle du trajet (trip_id non renseigné sur telemetry_events)
         $query = TelemetryEvent::where('vehicle_id', $trip->vehicle_id)
             ->where('organization_id', $orgId)
             ->whereNotNull('latitude')
@@ -50,13 +50,12 @@ class TripReplayPage extends Page
             $query->where('ts', '>=', $trip->started_at);
         }
 
-        $points = $query->get(['latitude', 'longitude', 'ts', 'speed_kmh', 'event_type'])
+        $points = $query->get(['latitude', 'longitude', 'ts', 'speed_kmh'])
             ->map(fn ($e) => [
-                'lat'        => (float) $e->latitude,
-                'lng'        => (float) $e->longitude,
-                'ts'         => $e->ts,
-                'speed'      => $e->speed_kmh ? (float) $e->speed_kmh : null,
-                'event_type' => $e->event_type,
+                'lat'   => (float) $e->latitude,
+                'lng'   => (float) $e->longitude,
+                'ts'    => $e->ts instanceof \Carbon\Carbon ? $e->ts->toIso8601String() : (string) $e->ts,
+                'speed' => $e->speed_kmh ? (float) $e->speed_kmh : null,
             ])
             ->values();
 
@@ -67,4 +66,5 @@ class TripReplayPage extends Page
         ];
     }
 }
+
 
