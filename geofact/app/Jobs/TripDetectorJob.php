@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Trip;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -83,11 +84,11 @@ class TripDetectorJob
 
     private function handleActiveTrip(Vehicle $vehicle, Trip $trip, Collection $recentEvents, object $latestEvent): void
     {
-        $latestTs = strtotime($latestEvent->ts);
-        $tripAge  = (time() - strtotime($trip->started_at)) / 60;
+        $latestTs = Carbon::parse($latestEvent->ts);
+        $tripAge  = Carbon::parse($trip->started_at)->diffInMinutes(now());
 
         // Fermeture par silence GPS (véhicule offline)
-        $minutesSinceLastEvent = (time() - $latestTs) / 60;
+        $minutesSinceLastEvent = $latestTs->diffInMinutes(now());
         if ($minutesSinceLastEvent >= self::OFFLINE_THRESHOLD_MINUTES) {
             $this->closeTrip($trip, $latestEvent, 'completed');
             Log::info('geofact.trip_detector.closed_offline', ['vehicle_id' => $vehicle->id]);
@@ -106,7 +107,7 @@ class TripDetectorJob
 
     private function handleIdleVehicle(Vehicle $vehicle, object $latestEvent): void
     {
-        $minutesSinceLastEvent = (time() - strtotime($latestEvent->ts)) / 60;
+        $minutesSinceLastEvent = Carbon::parse($latestEvent->ts)->diffInMinutes(now());
 
         // Ne pas ouvrir un trajet sur un event trop vieux
         if ($minutesSinceLastEvent > self::LOOK_BACK_MINUTES) {
@@ -140,17 +141,6 @@ class TripDetectorJob
     {
         $endedAt = $lastEvent->ts;
 
-        // Calcule distance totale via haversine sur tous les points du trajet
-        $points = DB::table('telemetry_events')
-            ->where('vehicle_id', $trip->vehicle_id)
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->whereBetween('ts', [$trip->started_at, $endedAt])
-            ->orderBy('ts')
-            ->pluck('longitude', 'latitude')
-            ->toArray();
-
-        // Re-query pour avoir lat+lon ensemble
         $coords = DB::table('telemetry_events')
             ->where('vehicle_id', $trip->vehicle_id)
             ->whereNotNull('latitude')
@@ -161,15 +151,21 @@ class TripDetectorJob
 
         $distanceKm = $this->calculateDistance($coords);
 
-        // Ignorer les micro-trajets (GPS drift, redémarrage moteur)
+        $durationMinutes = max(1, (int) Carbon::parse($trip->started_at)->diffInMinutes(Carbon::parse($endedAt)));
+
+        // Micro-trajet (GPS drift, redémarrage moteur) → conserver mais marquer anomalous
         if ($distanceKm < self::MIN_TRIP_DISTANCE_KM) {
-            $trip->delete();
+            $trip->update([
+                'status'           => 'anomalous',
+                'ended_at'         => $endedAt,
+                'end_latitude'     => $lastEvent->latitude,
+                'end_longitude'    => $lastEvent->longitude,
+                'distance_km'      => round($distanceKm, 3),
+                'duration_minutes' => $durationMinutes,
+                'anomaly_note'     => 'micro_trip:distance_below_threshold',
+            ]);
             return;
         }
-
-        $durationMinutes = max(1, round(
-            (strtotime($endedAt) - strtotime($trip->started_at)) / 60
-        ));
 
         $trip->update([
             'status'          => $status,
@@ -184,7 +180,8 @@ class TripDetectorJob
     private function isVehicleStopped(Collection $events): bool
     {
         if ($events->isEmpty()) {
-            return true;
+            // GPS loss — cannot determine state, assume vehicle is still moving
+            return false;
         }
 
         // Tous les events récents ont speed=0 et ignition=0
