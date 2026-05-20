@@ -24,8 +24,11 @@ class VehicleDataCollector
             ->orderBy('started_at')
             ->get();
 
-        $totalKm      = $trips->sum('distance_km');
-        $totalMinutes = $trips->sum('duration_minutes');
+        // Km et heures calculés sur les trajets complétés uniquement
+        // Les trajets anomaleux (0 km, moteur tournant à l'arrêt) fausseraient les KPIs
+        $completedTrips = $trips->where('status', 'completed');
+        $totalKm        = $completedTrips->sum('distance_km');
+        $totalMinutes   = $completedTrips->sum('duration_minutes');
 
         $alerts = Alert::where('vehicle_id', $vehicleId)
             ->where('organization_id', $orgId)
@@ -51,7 +54,7 @@ class VehicleDataCollector
             ->whereBetween('ts', [$from, $to])
             ->max('speed_kmh');
 
-        $activeDays = $trips->groupBy(fn ($t) => $t->started_at->format('Y-m-d'))->count();
+        $activeDays = $completedTrips->groupBy(fn ($t) => $t->started_at->format('Y-m-d'))->count();
 
         $lastEvent = TelemetryEvent::where('vehicle_id', $vehicleId)
             ->orderByDesc('ts')
@@ -68,12 +71,13 @@ class VehicleDataCollector
             'vehicle_year'      => $vehicle->year ?? '—',
             'fleet_name'        => $vehicle->fleet?->name ?? 'Sans flotte',
             'vehicle_status'    => $vehicle->status,
-            'total_trips'       => $trips->count(),
-            'total_km'          => round((float) $totalKm, 1),
-            'total_hours'       => round((float) $totalMinutes / 60, 1),
+            'total_trips'       => $completedTrips->count(),
+            'total_km'          => $totalKm > 0 ? round((float) $totalKm, 1) : null,
+            'total_hours'       => $totalMinutes > 0 ? round((float) $totalMinutes / 60, 1) : null,
             'avg_speed_kmh'     => $avgSpeed ? round((float) $avgSpeed, 1) : null,
-            'max_speed_kmh'     => $maxSpeed ? round((float) $maxSpeed, 1) : null,
+            'max_speed_kmh'     => ($maxSpeed && $maxSpeed > 0) ? round((float) $maxSpeed, 1) : null,
             'active_days'       => $activeDays,
+            'total_trips_all'   => $trips->count(),
             'anomalous_trips'   => $anomalousTrips->count(),
             'anomaly_notes'     => $anomalousTrips->pluck('anomaly_note')->filter()->values()->toArray(),
             'alerts_total'      => $alerts->count(),
