@@ -150,13 +150,18 @@ class WialonSyncJob
         $messages = $client->getMessages($sid, (int) $unitId, $fromTs, $nowTs);
 
         if (! empty($messages)) {
-            $latestTs  = null;
-            $processed = 0;
+            $latestTs    = null; // ts max des messages GPS traités
+            $latestAnyTs = null; // ts max de tous les messages (GPS ou non)
+            $processed   = 0;
 
             foreach ($messages as $msg) {
                 $msgTs = isset($msg['t']) ? (int) $msg['t'] : null;
                 if (! $msgTs) {
                     continue;
+                }
+
+                if ($latestAnyTs === null || $msgTs > $latestAnyTs) {
+                    $latestAnyTs = $msgTs;
                 }
 
                 // Ignorer les messages sans position GPS
@@ -211,13 +216,23 @@ class WialonSyncJob
                 return;
             }
 
-            // getMessages a retourné des messages mais aucun n'avait de position GPS
-            // (messages heartbeat / ignition sans coordonnées) — on tombe sur lmsg
-            Log::info('geofact.wialon.sync.no_gps_in_messages', [
-                'unit_id'   => $unitId,
-                'msg_count' => count($messages),
-                'from_ts'   => $fromTs,
-            ]);
+            // Aucun message GPS dans le lot : avancer last_message_ts jusqu'au
+            // ts maximal des messages non-GPS pour rétrécir la fenêtre du prochain
+            // appel et éviter que loadCount:500 soit saturé par des heartbeats.
+            if ($latestAnyTs && $latestAnyTs > (int) $mapping->last_message_ts) {
+                $mapping->update(['last_message_ts' => $latestAnyTs]);
+                Log::info('geofact.wialon.sync.advanced_past_non_gps', [
+                    'unit_id'        => $unitId,
+                    'msg_count'      => count($messages),
+                    'latest_any_ts'  => $latestAnyTs,
+                ]);
+            } else {
+                Log::info('geofact.wialon.sync.no_gps_in_messages', [
+                    'unit_id'   => $unitId,
+                    'msg_count' => count($messages),
+                    'from_ts'   => $fromTs,
+                ]);
+            }
         }
 
         // Fallback lmsg si getMessages() retourne vide (permission insuffisante ou aucun mouvement)
