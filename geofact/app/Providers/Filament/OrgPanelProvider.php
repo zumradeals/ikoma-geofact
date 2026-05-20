@@ -48,6 +48,10 @@ class OrgPanelProvider extends PanelProvider
             ->plugins([
                 FilamentApexChartsPlugin::make(),
             ])
+            ->renderHook('panels::head.end', fn (): string =>
+                '<link rel="stylesheet" href="/vendor/leaflet/leaflet.min.css">' .
+                '<script src="/vendor/leaflet/leaflet.min.js"></script>'
+            )
             ->discoverResources(in: app_path('Filament/Org/Resources'), for: 'App\Filament\Org\Resources')
             ->discoverPages(in: app_path('Filament/Org/Pages'), for: 'App\Filament\Org\Pages')
             ->discoverWidgets(in: app_path('Filament/Org/Widgets'), for: 'App\Filament\Org\Widgets')
