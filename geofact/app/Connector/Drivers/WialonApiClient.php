@@ -72,7 +72,8 @@ class WialonApiClient
 
     /**
      * Liste toutes les unités Wialon accessibles via cette session.
-     * flags=0x101 (0x1=base + 0x100=last message with position) pour inclure lmsg.
+     * flags=0x481 : 0x1=base + 0x80=messages params + 0x400=position/lmsg.
+     * Si lmsg reste null, vérifier les droits uacl du token Wialon (avl_unit_pos).
      *
      * @return array<int, array{id: int, name: string, last_pos: array|null}>
      */
@@ -89,7 +90,7 @@ class WialonApiClient
                         'sortType'     => 'sys_name',
                     ],
                     'force'     => 1,
-                    'flags'     => 0x101, // 0x1=base + 0x100=last message (lmsg with pos inside)
+                    'flags'     => 0x481, // 0x1=base + 0x80=messages_params + 0x400=lmsg/pos
                     'from'      => 0,
                     'to'        => 0,
                 ]),
@@ -110,17 +111,26 @@ class WialonApiClient
 
         // Log du premier item pour diagnostiquer les flags et droits d'accès
         if (! empty($items)) {
-            $first = $items[0];
+            $first    = $items[0];
+            $lmsgVal  = $first['lmsg'] ?? null;
             Log::info('geofact.wialon.get_units.item_keys', [
-                'keys'  => array_keys($first),
-                'lmsg'  => $first['lmsg'] ?? 'absent',
-                'uacl'  => $first['uacl'] ?? 'absent', // droits d'accès (bit 0x100 = avl_unit_pos)
+                'keys'     => array_keys($first),
+                'lmsg'     => $lmsgVal === null ? 'absent' : (is_array($lmsgVal) ? 'present' : 'null'),
+                'has_pos'  => isset($lmsgVal['pos']),
+                'uacl'     => $first['uacl'] ?? 'absent',
             ]);
         }
 
         $units = [];
         foreach ($items as $item) {
-            $lmsg = $item['lmsg'] ?? null;
+            $lmsg    = $item['lmsg'] ?? null;
+            $unitPos = $item['pos']  ?? null; // dernière pos connue (flag 0x80 si disponible)
+
+            // Fallback : si lmsg n'a pas de pos (ex. message allumage), injecter la dernière position connue
+            if ($lmsg && ! isset($lmsg['pos']) && $unitPos) {
+                $lmsg['pos'] = $unitPos;
+            }
+
             $pos  = $lmsg['pos'] ?? null;
 
             $units[] = [
@@ -180,11 +190,13 @@ class WialonApiClient
 
         $body = $response->json();
 
-        Log::debug('geofact.wialon.get_messages.raw', [
+        Log::info('geofact.wialon.get_messages.raw', [
             'unit_id' => $unitId,
             'keys'    => array_keys($body ?? []),
             'error'   => $body['error'] ?? null,
             'count'   => $body['count'] ?? null,
+            'from_ts' => $fromTs,
+            'to_ts'   => $toTs,
         ]);
 
         // Wialon retourne {count: N, messages: [...]} ou une erreur {error: N}
@@ -196,7 +208,17 @@ class WialonApiClient
             return [];
         }
 
-        return $body['messages'] ?? [];
+        $messages = $body['messages'] ?? [];
+
+        if (empty($messages)) {
+            Log::info('geofact.wialon.get_messages.empty', [
+                'unit_id' => $unitId,
+                'from_ts' => $fromTs,
+                'to_ts'   => $toTs,
+            ]);
+        }
+
+        return $messages;
     }
 
     /**
