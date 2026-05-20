@@ -14,7 +14,9 @@
 
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" crossorigin="" />
 
-        <div id="ikoma-dash-map" style="height:380px;border-radius:8px;overflow:hidden;z-index:0;"></div>
+        <div style="height:380px;border-radius:8px;position:relative;">
+            <div id="ikoma-dash-map" style="height:100%;width:100%;position:absolute;top:0;left:0;border-radius:8px;"></div>
+        </div>
 
         <style>
             .ikoma-dmap-tooltip {
@@ -70,8 +72,9 @@
                         zoom = 9;
                     }
 
-                    const map = L.map('ikoma-dash-map', { zoomControl: true }).setView(center, zoom);
+                    const map = L.map('ikoma-dash-map', { zoomControl: true, preferCanvas: true }).setView(center, zoom);
                     window._ikomaDashMapInstance = map;
+                    setTimeout(function () { map.invalidateSize(); }, 300);
 
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
