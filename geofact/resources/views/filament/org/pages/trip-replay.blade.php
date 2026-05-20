@@ -52,8 +52,8 @@
     </div>
 
     {{-- Map --}}
-    <div class="rounded-xl overflow-hidden shadow-lg" style="height:550px; border:2px solid #1e3a5f">
-        <div id="replay-map" style="height:100%;width:100%;"></div>
+    <div class="rounded-xl shadow-lg" style="height:550px; border:2px solid #1e3a5f; position:relative;">
+        <div id="replay-map" style="height:100%;width:100%;position:absolute;top:0;left:0;"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -61,11 +61,12 @@
     <script>
     var POINTS = {!! $pointsJson !!};
 
-    var map = L.map('replay-map');
+    var map = L.map('replay-map', { preferCanvas: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
+    setTimeout(function () { map.invalidateSize(); }, 300);
 
     // Polyline complète du trajet (grisée)
     var fullCoords = POINTS.map(function (p) { return [p.lat, p.lng]; });
