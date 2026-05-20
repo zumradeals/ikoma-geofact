@@ -148,6 +148,8 @@ class TestDriversSeeder extends Seeder
                         'organization_id' => $org->id,
                         'vehicle_id'      => $vehicle?->id,
                         'driver_id'       => $driver->id,
+                        'rule_id'         => 'RS-TEST-' . strtoupper($severity),
+                        'rule_type'       => 'RS',
                         'event_type'      => 'alert.' . $type,
                         'severity'        => $severity,
                         'status'          => 'open',
