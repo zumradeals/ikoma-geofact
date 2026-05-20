@@ -137,12 +137,11 @@ class TestDriversSeeder extends Seeder
                         'organization_id' => $org->id,
                         'vehicle_id'      => $vehicle?->id,
                         'driver_id'       => $driver->id,
-                        'alert_type'      => 'alert.' . $type,
+                        'event_type'      => 'alert.' . $type,
                         'severity'        => $severity,
                         'status'          => 'open',
-                        'title'           => ucfirst(str_replace('.', ' ', $type)),
-                        'description'     => 'Alerte de test — conducteur ' . $driver->last_name,
                         'triggered_at'    => now()->subDays(rand(1, 28)),
+                        'created_at'      => now(),
                     ]);
                 }
             }
