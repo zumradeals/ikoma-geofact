@@ -72,7 +72,7 @@ class WialonApiClient
 
     /**
      * Liste toutes les unités Wialon accessibles via cette session.
-     * flags=0x101 (1=base + 256=last message with position) pour inclure lmsg.
+     * flags=0x101 (0x1=base + 0x100=last message with position) pour inclure lmsg.
      *
      * @return array<int, array{id: int, name: string, last_pos: array|null}>
      */
@@ -89,7 +89,7 @@ class WialonApiClient
                         'sortType'     => 'sys_name',
                     ],
                     'force'     => 1,
-                    'flags'     => 0x481, // 0x1=base + 0x80=last known pos + 0x400=last message (lmsg)
+                    'flags'     => 0x101, // 0x1=base + 0x100=last message (lmsg with pos inside)
                     'from'      => 0,
                     'to'        => 0,
                 ]),
@@ -108,26 +108,20 @@ class WialonApiClient
         $body  = $response->json();
         $items = $body['items'] ?? [];
 
-        // Log du premier item pour diagnostiquer les flags disponibles
+        // Log du premier item pour diagnostiquer les flags et droits d'accès
         if (! empty($items)) {
+            $first = $items[0];
             Log::info('geofact.wialon.get_units.item_keys', [
-                'keys' => array_keys($items[0]),
-                'lmsg' => $items[0]['lmsg'] ?? 'absent',
-                'pos'  => $items[0]['pos']  ?? 'absent',
+                'keys'  => array_keys($first),
+                'lmsg'  => $first['lmsg'] ?? 'absent',
+                'uacl'  => $first['uacl'] ?? 'absent', // droits d'accès (bit 0x100 = avl_unit_pos)
             ]);
         }
 
         $units = [];
         foreach ($items as $item) {
-            $lmsg    = $item['lmsg'] ?? null;
-            $unitPos = $item['pos']  ?? null; // dernière position connue (flag 0x80)
-
-            // Fallback : si lmsg n'a pas de pos (ex. message d'allumage), injecter la dernière position connue
-            if ($lmsg && ! isset($lmsg['pos']) && $unitPos) {
-                $lmsg['pos'] = $unitPos;
-            }
-
-            $pos = $lmsg['pos'] ?? null;
+            $lmsg = $item['lmsg'] ?? null;
+            $pos  = $lmsg['pos'] ?? null;
 
             $units[] = [
                 'id'      => (int) ($item['id'] ?? 0),
