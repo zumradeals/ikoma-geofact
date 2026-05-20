@@ -16,9 +16,11 @@
         </style>
 
         <script>
-        function ikomaLiveMap(vehiclesJson) {
+        var _ikomaVehicles = {!! $vehiclesJson !!};
+
+        function ikomaLiveMap() {
             return {
-                vehicles: vehiclesJson,
+                vehicles: _ikomaVehicles,
                 map: null,
                 init: function () {
                     var self = this;
@@ -82,10 +84,7 @@
         }
         </script>
 
-        <div
-            x-data="ikomaLiveMap({!! $vehiclesJson !!})"
-            style="height:380px;position:relative;"
-        >
+        <div x-data="ikomaLiveMap()" style="height:380px;position:relative;">
             <div id="ikoma-live-map" style="height:100%;width:100%;border-radius:8px;"></div>
         </div>
 
