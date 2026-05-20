@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\Trip;
 use App\Models\Vehicle;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -96,24 +97,26 @@ class TestDriversSeeder extends Seeder
         ];
 
         foreach ($drivers as $index => $data) {
-            // Éviter les doublons
-            if (Driver::where('license_number', $data['license_number'])->exists()) {
-                $this->command->line("  → {$data['license_number']} déjà existant, ignoré.");
-                continue;
-            }
+            // Récupère ou crée le conducteur
+            $driver = Driver::where('license_number', $data['license_number'])->first();
 
-            $driver = Driver::create([
-                'id'              => Str::uuid()->toString(),
-                'organization_id' => $org->id,
-                'fleet_id'        => $fleet?->id,
-                'first_name'      => $data['first_name'],
-                'last_name'       => $data['last_name'],
-                'phone'           => $data['phone'],
-                'license_number'  => $data['license_number'],
-                'license_expiry'  => $data['license_expiry'],
-                'status'          => $data['status'],
-                'created_by'      => $org->id,
-            ]);
+            if (! $driver) {
+                $driver = Driver::create([
+                    'id'              => Str::uuid()->toString(),
+                    'organization_id' => $org->id,
+                    'fleet_id'        => $fleet?->id,
+                    'first_name'      => $data['first_name'],
+                    'last_name'       => $data['last_name'],
+                    'phone'           => $data['phone'],
+                    'license_number'  => $data['license_number'],
+                    'license_expiry'  => $data['license_expiry'],
+                    'status'          => $data['status'],
+                    'created_by'      => $org->id,
+                ]);
+                $this->command->line("  + Conducteur créé : {$driver->first_name} {$driver->last_name}");
+            } else {
+                $this->command->line("  → {$data['license_number']} déjà existant, alertes mises à jour.");
+            }
 
             // Associer un véhicule si disponible
             $vehicle = $vehicles->get($index);
@@ -127,7 +130,15 @@ class TestDriversSeeder extends Seeder
                     ->each(fn ($t) => $t->update(['driver_id' => $driver->id]));
             }
 
+            // Supprimer les alertes test existantes pour ce conducteur avant de recréer
+            DB::table('alerts')
+                ->where('driver_id', $driver->id)
+                ->where('organization_id', $org->id)
+                ->whereIn('event_type', array_merge(...array_values($alertTypes)))
+                ->delete();
+
             // Créer des alertes représentatives sur les 30 derniers jours
+            $created = 0;
             foreach ($data['alerts'] as $severity => $count) {
                 $types = $alertTypes[$severity];
                 for ($i = 0; $i < $count; $i++) {
@@ -143,11 +154,11 @@ class TestDriversSeeder extends Seeder
                         'triggered_at'    => now()->subDays(rand(1, 28)),
                         'created_at'      => now(),
                     ]);
+                    $created++;
                 }
             }
 
-            $total = array_sum($data['alerts']);
-            $this->command->info("  ✓ {$data['first_name']} {$data['last_name']} ({$data['license_number']}) — {$total} alertes");
+            $this->command->info("  ✓ {$data['first_name']} {$data['last_name']} — {$created} alertes créées");
         }
 
         $this->command->info('');
