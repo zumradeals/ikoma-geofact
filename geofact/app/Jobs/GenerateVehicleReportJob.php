@@ -7,14 +7,11 @@ use App\Reports\AiEnricher;
 use App\Reports\DataCollectors\VehicleDataCollector;
 use App\Reports\PdfRenderer;
 use Carbon\Carbon;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 
-class GenerateVehicleReportJob implements ShouldQueue
+class GenerateVehicleReportJob
 {
-    use Dispatchable, InteractsWithQueue, SerializesModels;
+    use Dispatchable;
 
     public int $timeout = 120;
     public int $tries   = 1;
