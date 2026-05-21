@@ -45,6 +45,8 @@ class PacketBuilder
         $trends    = $this->trends->build($scopeType, $scopeId, $organizationId);
         $benchmark = $this->benchmark->build($scopeType, $scopeId, $organizationId);
 
+        $lastPosition = $this->loadLastPosition($scopeType, $scopeId);
+
         return [
             'scope_type'       => $scopeType,
             'scope_id'         => $scopeId,
@@ -56,6 +58,7 @@ class PacketBuilder
             'kpis'             => $kpis,
             'alerts'           => $alerts,
             'trips'            => $trips,
+            'last_position'    => $lastPosition,
 
             // Intelligence layers
             'memory'           => $memory,
@@ -99,6 +102,31 @@ class PacketBuilder
 
         return $query->get(['id', 'event_type', 'severity', 'status', 'triggered_at'])
             ->toArray();
+    }
+
+    private function loadLastPosition(string $scopeType, string $scopeId): ?array
+    {
+        if ($scopeType !== 'vehicle') {
+            return null;
+        }
+
+        $event = \App\Models\TelemetryEvent::where('vehicle_id', $scopeId)
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->orderByDesc('ts')
+            ->first(['latitude', 'longitude', 'speed_kmh', 'ignition', 'ts']);
+
+        if (! $event) {
+            return null;
+        }
+
+        return [
+            'latitude'    => $event->latitude,
+            'longitude'   => $event->longitude,
+            'speed_kmh'   => $event->speed_kmh,
+            'ignition'    => $event->ignition,
+            'recorded_at' => $event->ts?->toIso8601String(),
+        ];
     }
 
     private function loadTripStats(

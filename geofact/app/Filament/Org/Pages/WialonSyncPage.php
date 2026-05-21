@@ -12,6 +12,7 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class WialonSyncPage extends Page
@@ -172,12 +173,26 @@ class WialonSyncPage extends Page
             return;
         }
 
+        if (empty($vehicleId)) {
+            Log::warning('geofact.wialon.mapping.vehicle_id_missing', [
+                'unit_id'      => $wialonUnitId,
+                'unit_name'    => $wialonUnitName,
+                'connector_id' => $connector->id,
+            ]);
+            Notification::make()
+                ->title('Mapping incomplet')
+                ->body('Sélectionnez un véhicule IKOMA avant de mapper cette unité.')
+                ->warning()
+                ->send();
+            return;
+        }
+
         WialonUnitMapping::updateOrCreate(
             ['organization_id' => $orgId, 'wialon_unit_id' => $wialonUnitId],
             [
                 'id'                 => Str::uuid()->toString(),
                 'wialon_unit_name'   => $wialonUnitName,
-                'ikoma_vehicle_id'   => $vehicleId ?: null,
+                'ikoma_vehicle_id'   => $vehicleId,
                 'ikoma_connector_id' => $connector->id,
                 'status'             => 'active',
             ]

@@ -58,7 +58,7 @@ class VehicleDataCollector
 
         $lastEvent = TelemetryEvent::where('vehicle_id', $vehicleId)
             ->orderByDesc('ts')
-            ->first();
+            ->first(['ts', 'latitude', 'longitude', 'speed_kmh', 'ignition']);
 
         $anomalousTrips = $trips->where('status', 'anomalous');
 
@@ -87,7 +87,11 @@ class VehicleDataCollector
             'alerts_low'        => $alertsBySeverity['LOW'] ?? 0,
             'alerts_by_rule'    => $alertsByRule,
             'alerts_unresolved' => $alerts->whereIn('status', ['open', 'triggered', 'delivered'])->count(),
-            'last_seen_at'      => $lastEvent?->ts?->format('d/m/Y H:i') ?? '—',
+            'last_seen_at'        => $lastEvent?->ts?->format('d/m/Y H:i') ?? '—',
+            'last_seen_latitude'  => $lastEvent?->latitude,
+            'last_seen_longitude' => $lastEvent?->longitude,
+            'last_seen_speed_kmh' => $lastEvent?->speed_kmh,
+            'last_seen_ignition'  => $lastEvent?->ignition,
             'trips_detail'      => $trips->map(fn ($t) => [
                 'date'     => $t->started_at->format('d/m/Y'),
                 'distance' => round((float) $t->distance_km, 1),
