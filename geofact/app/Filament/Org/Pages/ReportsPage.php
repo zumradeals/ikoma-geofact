@@ -87,7 +87,7 @@ class ReportsPage extends Page
                         'generated_by'    => $userId,
                     ]);
 
-                    GenerateFleetReportJob::dispatch($reportId, $orgId, $from, $to, $userId);
+                    GenerateFleetReportJob::dispatchSync($reportId, $orgId, $from, $to, $userId);
 
                     Notification::make()->title('Rapport en cours de génération')->body('Il sera disponible dans quelques secondes.')->success()->send();
                 }),
@@ -147,7 +147,7 @@ class ReportsPage extends Page
                         'generated_by'    => $userId,
                     ]);
 
-                    GenerateVehicleReportJob::dispatch($reportId, $orgId, $data['vehicle_id'], $from, $to, $userId);
+                    GenerateVehicleReportJob::dispatchSync($reportId, $orgId, $data['vehicle_id'], $from, $to, $userId);
 
                     Notification::make()->title('Rapport véhicule en cours')->body('Il sera disponible dans quelques secondes.')->success()->send();
                 }),
@@ -208,7 +208,7 @@ class ReportsPage extends Page
                         'generated_by'    => $userId,
                     ]);
 
-                    GenerateDriverReportJob::dispatch($reportId, $orgId, $data['driver_id'], $from, $to, $userId);
+                    GenerateDriverReportJob::dispatchSync($reportId, $orgId, $data['driver_id'], $from, $to, $userId);
 
                     Notification::make()->title('Rapport conducteur en cours')->body('Il sera disponible dans quelques secondes.')->success()->send();
                 }),
