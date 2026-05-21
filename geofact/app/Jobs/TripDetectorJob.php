@@ -25,10 +25,11 @@ class TripDetectorJob
 {
     use Dispatchable;
 
-    private const STOP_THRESHOLD_MINUTES = 5;   // arrêt consécutif → fin de trajet
-    private const OFFLINE_THRESHOLD_MINUTES = 30; // silence GPS → fermer le trajet
-    private const MIN_TRIP_DISTANCE_KM = 0.1;   // ignorer les micro-trajets < 100m
-    private const LOOK_BACK_MINUTES = 10;        // fenêtre de lecture des events récents
+    private const STOP_THRESHOLD_MINUTES   = 5;   // arrêt consécutif → fin de trajet
+    private const OFFLINE_THRESHOLD_MINUTES = 30;  // silence GPS → fermer le trajet
+    private const ORPHAN_THRESHOLD_MINUTES  = 360; // 6 heures → sécurité absolue
+    private const MIN_TRIP_DISTANCE_KM      = 0.1; // ignorer les micro-trajets < 100m
+    private const LOOK_BACK_MINUTES         = 10;  // fenêtre de lecture des events récents
 
     public function handle(): void
     {
@@ -86,6 +87,17 @@ class TripDetectorJob
     {
         $latestTs = Carbon::parse($latestEvent->ts);
         $tripAge  = Carbon::parse($trip->started_at)->diffInMinutes(now());
+
+        // Sécurité absolue : clôturer tout trajet actif depuis plus de 6 heures
+        if ($tripAge >= self::ORPHAN_THRESHOLD_MINUTES) {
+            $this->forceCloseOrphan($trip, $latestEvent);
+            Log::warning('geofact.trip_detector.closed_orphan', [
+                'trip_id'    => $trip->id,
+                'vehicle_id' => $vehicle->id,
+                'trip_age_h' => round($tripAge / 60, 1),
+            ]);
+            return;
+        }
 
         // Fermeture par silence GPS (véhicule offline)
         $minutesSinceLastEvent = $latestTs->diffInMinutes(now());
@@ -174,6 +186,32 @@ class TripDetectorJob
             'end_longitude'   => $lastEvent->longitude,
             'distance_km'     => round($distanceKm, 3),
             'duration_minutes'=> $durationMinutes,
+        ]);
+    }
+
+    private function forceCloseOrphan(Trip $trip, object $lastEvent): void
+    {
+        $endedAt = $lastEvent->ts;
+
+        $coords = DB::table('telemetry_events')
+            ->where('vehicle_id', $trip->vehicle_id)
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->whereBetween('ts', [$trip->started_at, $endedAt])
+            ->orderBy('ts')
+            ->get(['latitude', 'longitude']);
+
+        $distanceKm      = $this->calculateDistance($coords);
+        $durationMinutes = max(1, (int) Carbon::parse($trip->started_at)->diffInMinutes(Carbon::parse($endedAt)));
+
+        $trip->update([
+            'status'           => 'anomalous',
+            'ended_at'         => $endedAt,
+            'end_latitude'     => $lastEvent->latitude,
+            'end_longitude'    => $lastEvent->longitude,
+            'distance_km'      => round($distanceKm, 3),
+            'duration_minutes' => $durationMinutes,
+            'anomaly_note'     => 'Trajet clôturé automatiquement — absence de signal > 6h',
         ]);
     }
 
