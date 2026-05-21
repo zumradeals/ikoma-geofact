@@ -120,9 +120,15 @@ PROMPT;
             $ruleLines .= "  - {$rule} : {$count} alerte(s)\n";
         }
 
+        $freshnessLabel = match ($data['last_seen_freshness'] ?? null) {
+            'fresh'   => 'fraîche (< 5 min)',
+            'delayed' => 'en retard (5–60 min)',
+            'stale'   => '⚠ OBSOLÈTE (> 1 h)',
+            default   => 'fraîcheur inconnue',
+        };
         $locationLine = ($data['last_seen_latitude'] !== null && $data['last_seen_longitude'] !== null)
-            ? "DERNIÈRE POSITION : lat={$data['last_seen_latitude']}, lon={$data['last_seen_longitude']}, vitesse={$data['last_seen_speed_kmh']} km/h, moteur=" . ($data['last_seen_ignition'] ? 'allumé' : 'éteint') . " (relevé le {$data['last_seen_at']})"
-            : "DERNIÈRE POSITION : non disponible";
+            ? "DERNIÈRE POSITION OFFICIELLE IKOMA : lat={$data['last_seen_latitude']}, lon={$data['last_seen_longitude']}, vitesse={$data['last_seen_speed_kmh']} km/h, moteur=" . ($data['last_seen_ignition'] ? 'allumé' : 'éteint') . " — relevé le {$data['last_seen_at']} [{$freshnessLabel}]"
+            : "DERNIÈRE POSITION OFFICIELLE IKOMA : non disponible (aucun signal GPS intégré)";
 
         $prompt = <<<PROMPT
 Tu es analyste expert en gestion de flotte pour PME africaines.

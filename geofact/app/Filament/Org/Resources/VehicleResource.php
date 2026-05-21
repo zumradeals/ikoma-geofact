@@ -75,6 +75,7 @@ class VehicleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with('currentPosition'))
             ->columns([
                 Tables\Columns\TextColumn::make('plate')
                     ->label('Immatriculation')
@@ -112,6 +113,18 @@ class VehicleResource extends Resource
                     ->label('En cours')
                     ->boolean()
                     ->state(fn (Vehicle $record) => $record->activeTrip()->exists()),
+
+                Tables\Columns\TextColumn::make('currentPosition.position_ts')
+                    ->label('Dernière pos. GPS')
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->color(fn (Vehicle $record) => match ($record->currentPosition?->live_freshness_status) {
+                        'fresh'   => 'success',
+                        'delayed' => 'warning',
+                        'stale'   => 'danger',
+                        default   => 'gray',
+                    }),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('fleet_id')
