@@ -9,55 +9,79 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Clôture manuellement les trajets orphelins (actifs depuis plus de 6 heures).
+ * Cloture manuellement les trajets orphelins.
  *
- * Usage :
- *   php artisan trips:close-orphans
- *   php artisan trips:close-orphans --dry-run
- *   php artisan trips:close-orphans --threshold=360
+ * Un trajet orphelin est un trajet actif, ancien, et sans signal GPS recent.
  */
 class TripCloseOrphansCommand extends Command
 {
     protected $signature = 'trips:close-orphans
-                            {--dry-run : Afficher les trajets orphelins sans les clôturer}
-                            {--threshold=360 : Âge en minutes au-delà duquel un trajet est orphelin}';
+                            {--dry-run : Afficher les trajets orphelins sans les cloturer}
+                            {--yes : Ne pas demander de confirmation}
+                            {--force : Cloturer selon l\'age du trajet, meme si le dernier signal GPS est recent}
+                            {--threshold=360 : Age en minutes au-dela duquel un trajet est orphelin}';
 
-    protected $description = 'Clôture les trajets actifs depuis plus de N minutes (défaut : 360 = 6h)';
+    protected $description = 'Cloture les trajets actifs depuis plus de N minutes sans signal GPS recent (defaut : 360 = 6h)';
 
     public function handle(): int
     {
-        $thresholdMinutes = (int) $this->option('threshold');
+        $thresholdMinutes = max(1, (int) $this->option('threshold'));
         $isDryRun         = (bool) $this->option('dry-run');
+        $skipConfirmation = (bool) $this->option('yes');
+        $isForce          = (bool) $this->option('force');
         $cutoff           = Carbon::now()->subMinutes($thresholdMinutes);
 
-        $orphans = Trip::where('status', 'active')
+        $candidates = Trip::where('status', 'active')
             ->where('started_at', '<=', $cutoff)
             ->get();
 
+        $orphans = $candidates
+            ->filter(function (Trip $trip) use ($cutoff, $isForce): bool {
+                if ($isForce) {
+                    return true;
+                }
+
+                $lastEvent = $this->latestPositionEvent($trip);
+
+                return ! $lastEvent || Carbon::parse($lastEvent->ts)->lte($cutoff);
+            })
+            ->values();
+
         if ($orphans->isEmpty()) {
-            $this->info("Aucun trajet orphelin trouvé (seuil : {$thresholdMinutes} min).");
+            if ($candidates->isNotEmpty()) {
+                $this->info("Aucun trajet orphelin : {$candidates->count()} trajet(s) actif(s) ancien(s), mais avec signal GPS recent.");
+                return self::SUCCESS;
+            }
+
+            $this->info("Aucun trajet orphelin trouve (seuil : {$thresholdMinutes} min).");
             return self::SUCCESS;
         }
 
-        $this->warn("Trajets orphelins trouvés : {$orphans->count()}");
+        $this->warn("Trajets orphelins trouves : {$orphans->count()}");
 
-        $headers = ['ID', 'Vehicle ID', 'Démarré le', 'Âge (h)'];
-        $rows    = $orphans->map(fn ($t) => [
-            $t->id,
-            $t->vehicle_id,
-            $t->started_at,
-            round(Carbon::parse($t->started_at)->diffInMinutes(now()) / 60, 1),
-        ])->toArray();
+        $headers = ['ID', 'Vehicle ID', 'Demarre le', 'Age (h)', 'Dernier signal', 'Silence (h)'];
+        $rows = $orphans->map(function (Trip $trip) {
+            $lastEvent = $this->latestPositionEvent($trip);
+
+            return [
+                $trip->id,
+                $trip->vehicle_id,
+                $trip->started_at,
+                round(Carbon::parse($trip->started_at)->diffInMinutes(now()) / 60, 1),
+                $lastEvent?->ts ?? 'aucun',
+                $lastEvent ? round(Carbon::parse($lastEvent->ts)->diffInMinutes(now()) / 60, 1) : 'aucun',
+            ];
+        })->toArray();
 
         $this->table($headers, $rows);
 
         if ($isDryRun) {
-            $this->info('Mode dry-run — aucune modification effectuée.');
+            $this->info('Mode dry-run - aucune modification effectuee.');
             return self::SUCCESS;
         }
 
-        if (! $this->confirm("Clôturer ces {$orphans->count()} trajet(s) comme anomalous ?")) {
-            $this->info('Annulé.');
+        if (! $skipConfirmation && ! $this->confirm("Cloturer ces {$orphans->count()} trajet(s) comme anomalous ?")) {
+            $this->info('Annule.');
             return self::SUCCESS;
         }
 
@@ -65,15 +89,18 @@ class TripCloseOrphansCommand extends Command
 
         foreach ($orphans as $trip) {
             try {
-                $lastEvent = DB::table('telemetry_events')
-                    ->where('vehicle_id', $trip->vehicle_id)
-                    ->whereNotNull('latitude')
-                    ->orderByDesc('ts')
-                    ->first(['ts', 'latitude', 'longitude', 'speed_kmh', 'ignition']);
+                $lastEvent = $this->latestPositionEvent($trip);
+                $startedAt = Carbon::parse($trip->started_at);
+                $endedAtAt = $lastEvent ? Carbon::parse($lastEvent->ts) : now();
 
-                $endedAt = $lastEvent?->ts ?? now()->toDateTimeString();
+                if ($endedAtAt->lt($startedAt)) {
+                    $endedAtAt = now();
+                }
+
+                $endedAt = $endedAtAt->toDateTimeString();
 
                 $coords = DB::table('telemetry_events')
+                    ->where('organization_id', $trip->organization_id)
                     ->where('vehicle_id', $trip->vehicle_id)
                     ->whereNotNull('latitude')
                     ->whereNotNull('longitude')
@@ -82,7 +109,7 @@ class TripCloseOrphansCommand extends Command
                     ->get(['latitude', 'longitude']);
 
                 $distanceKm      = $this->calculateDistance($coords);
-                $durationMinutes = max(1, (int) Carbon::parse($trip->started_at)->diffInMinutes(Carbon::parse($endedAt)));
+                $durationMinutes = max(1, (int) $startedAt->diffInMinutes($endedAtAt));
 
                 $trip->update([
                     'status'           => 'anomalous',
@@ -91,15 +118,16 @@ class TripCloseOrphansCommand extends Command
                     'end_longitude'    => $lastEvent?->longitude,
                     'distance_km'      => round($distanceKm, 3),
                     'duration_minutes' => $durationMinutes,
-                    'anomaly_note'     => 'Trajet clôturé automatiquement — absence de signal > 6h',
+                    'anomaly_note'     => 'Trajet cloture automatiquement - absence de signal > 6h',
                 ]);
 
                 $closed++;
 
                 Log::warning('geofact.trip_detector.closed_orphan_manual', [
-                    'trip_id'    => $trip->id,
-                    'vehicle_id' => $trip->vehicle_id,
-                    'trip_age_h' => round($durationMinutes / 60, 1),
+                    'trip_id'        => $trip->id,
+                    'vehicle_id'     => $trip->vehicle_id,
+                    'trip_age_h'     => round(Carbon::parse($trip->started_at)->diffInMinutes(now()) / 60, 1),
+                    'last_signal_at' => $lastEvent?->ts,
                 ]);
             } catch (\Throwable $e) {
                 $this->error("Erreur sur le trajet {$trip->id} : {$e->getMessage()}");
@@ -110,9 +138,20 @@ class TripCloseOrphansCommand extends Command
             }
         }
 
-        $this->info("{$closed} trajet(s) clôturé(s).");
+        $this->info("{$closed} trajet(s) cloture(s).");
 
         return self::SUCCESS;
+    }
+
+    private function latestPositionEvent(Trip $trip): ?object
+    {
+        return DB::table('telemetry_events')
+            ->where('organization_id', $trip->organization_id)
+            ->where('vehicle_id', $trip->vehicle_id)
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->orderByDesc('ts')
+            ->first(['ts', 'latitude', 'longitude', 'speed_kmh', 'ignition']);
     }
 
     private function calculateDistance(\Illuminate\Support\Collection $coords): float
@@ -137,12 +176,12 @@ class TripCloseOrphansCommand extends Command
 
     private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
-        $R    = 6371.0;
+        $r    = 6371.0;
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
         $a    = sin($dLat / 2) ** 2
               + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
 
-        return $R * 2 * asin(sqrt($a));
+        return $r * 2 * asin(sqrt($a));
     }
 }
