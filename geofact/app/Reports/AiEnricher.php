@@ -112,12 +112,17 @@ PROMPT;
             $ruleLines .= "  - {$rule} : {$count} alerte(s)\n";
         }
 
+        $locationLine = ($data['last_seen_latitude'] && $data['last_seen_longitude'])
+            ? "DERNIÈRE POSITION : lat={$data['last_seen_latitude']}, lon={$data['last_seen_longitude']}, vitesse={$data['last_seen_speed_kmh']} km/h, moteur=" . ($data['last_seen_ignition'] ? 'allumé' : 'éteint') . " (relevé le {$data['last_seen_at']})"
+            : "DERNIÈRE POSITION : non disponible";
+
         $prompt = <<<PROMPT
 Tu es analyste expert en gestion de flotte pour PME africaines.
 Analyse les données suivantes pour UN véhicule et génère un rapport structuré en français.
 
 VÉHICULE : {$data['vehicle_plate']} ({$data['vehicle_brand']} {$data['vehicle_model']} {$data['vehicle_year']})
 FLOTTE : {$data['fleet_name']}
+{$locationLine}
 PÉRIODE : {$data['period_from']} → {$data['period_to']}
 
 ACTIVITÉ :
