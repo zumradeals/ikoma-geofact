@@ -8,14 +8,11 @@ use App\Reports\DataCollectors\FleetDataCollector;
 use App\Reports\PdfRenderer;
 use App\Reports\ReportBuilder;
 use Carbon\Carbon;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 
-class GenerateFleetReportJob implements ShouldQueue
+class GenerateFleetReportJob
 {
-    use Dispatchable, InteractsWithQueue, SerializesModels;
+    use Dispatchable;
 
     public int $timeout = 120;
     public int $tries   = 1;

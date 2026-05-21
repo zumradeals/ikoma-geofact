@@ -7,14 +7,11 @@ use App\Reports\AiEnricher;
 use App\Reports\DataCollectors\DriverDataCollector;
 use App\Reports\PdfRenderer;
 use Carbon\Carbon;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 
-class GenerateDriverReportJob implements ShouldQueue
+class GenerateDriverReportJob
 {
-    use Dispatchable, InteractsWithQueue, SerializesModels;
+    use Dispatchable;
 
     public int $timeout = 120;
     public int $tries   = 1;
