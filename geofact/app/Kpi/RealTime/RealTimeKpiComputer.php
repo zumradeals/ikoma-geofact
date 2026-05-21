@@ -6,6 +6,7 @@ use App\Models\KpiRecord;
 use App\Models\TelemetryEvent;
 use App\Models\Trip;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -29,6 +30,13 @@ class RealTimeKpiComputer
      */
     public function computeForVehicle(string $vehicleId, string $orgId): void
     {
+        // Throttle : un snapshot toutes les 15 minutes par véhicule
+        $cacheKey = 'kpi_rt_computed_' . $vehicleId;
+        if (Cache::has($cacheKey)) {
+            return;
+        }
+        Cache::put($cacheKey, true, now()->addMinutes(15));
+
         $todayStart = Carbon::now()->startOfDay();
         $now        = Carbon::now();
 
