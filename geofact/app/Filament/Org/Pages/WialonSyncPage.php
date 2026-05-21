@@ -7,6 +7,7 @@ use App\Jobs\WialonSyncJob;
 use App\Models\Connector;
 use App\Models\Fleet;
 use App\Models\Vehicle;
+use App\Models\VehicleCurrentPosition;
 use App\Models\WialonUnitMapping;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -62,6 +63,38 @@ class WialonSyncPage extends Page
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
+
+        $officialPositions = VehicleCurrentPosition::where('organization_id', $orgId)
+            ->get()
+            ->keyBy('vehicle_id');
+
+        $units = collect($units)
+            ->map(function (array $unit) use ($mappings, $officialPositions): array {
+                $mapping = $mappings->get($unit['id']);
+                $official = $mapping?->ikoma_vehicle_id
+                    ? $officialPositions->get($mapping->ikoma_vehicle_id)
+                    : null;
+
+                $liveTs = $unit['last_pos']['ts'] ?? null;
+                $officialTs = $official?->position_ts?->timestamp;
+
+                $unit['official_position'] = $official ? [
+                    'lat'       => (float) $official->latitude,
+                    'lon'       => (float) $official->longitude,
+                    'speed'     => $official->speed_kmh !== null ? (float) $official->speed_kmh : null,
+                    'ignition'  => $official->ignition,
+                    'ts'        => $officialTs,
+                    'freshness' => $official->live_freshness_status,
+                ] : null;
+
+                $unit['sync_gap_seconds'] = ($liveTs && $officialTs)
+                    ? max(0, (int) $liveTs - (int) $officialTs)
+                    : null;
+
+                return $unit;
+            })
+            ->values()
+            ->all();
 
         return [
             'units'        => $units,

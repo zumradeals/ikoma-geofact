@@ -3,15 +3,14 @@
 namespace App\Filament\Org\Pages;
 
 use App\Models\GeoZone;
-use App\Models\TelemetryEvent;
 use App\Models\Vehicle;
+use App\Models\VehicleCurrentPosition;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class VehicleMapPage extends Page
 {
-    protected static ?string $title = 'Carte des véhicules';
+    protected static ?string $title = 'Carte des vehicules';
     protected static ?int $navigationSort = 0;
 
     protected string $view = 'filament.org.pages.vehicle-map';
@@ -23,55 +22,36 @@ class VehicleMapPage extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return null; // Navigation racine, avant les groupes
+        return null;
     }
 
     public function getViewData(): array
     {
         $orgId = Auth::user()?->organization_id;
-        $driver = DB::connection()->getDriverName();
 
-        // Dernière position GPS par véhicule (latitude/longitude non nulles)
-        $latestEventIds = TelemetryEvent::where('organization_id', $orgId)
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->when(
-                $driver === 'sqlite',
-                fn ($q) => $q->selectRaw('vehicle_id, MAX(ts) as max_ts')
-                            ->groupBy('vehicle_id'),
-                fn ($q) => $q->selectRaw('vehicle_id, MAX(ts) as max_ts')
-                            ->groupBy('vehicle_id')
-            );
-
-        // Sous-requête pour récupérer l'event complet le plus récent par véhicule
-        $positions = TelemetryEvent::where('organization_id', $orgId)
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->whereIn(
-                DB::raw('CONCAT(vehicle_id, "|", ts)'),
-                $latestEventIds->get()->map(fn ($r) => $r->vehicle_id . '|' . $r->max_ts)
-            )
+        $positions = VehicleCurrentPosition::where('organization_id', $orgId)
             ->get()
             ->keyBy('vehicle_id');
 
-        // Véhicules actifs de l'org avec leur dernière position
         $vehicles = Vehicle::where('organization_id', $orgId)
             ->where('status', 'active')
             ->with('fleet')
             ->get()
-            ->map(function (Vehicle $v) use ($positions) {
-                $pos = $positions->get($v->id);
+            ->map(function (Vehicle $vehicle) use ($positions) {
+                $pos = $positions->get($vehicle->id);
+
                 return [
-                    'id'        => $v->id,
-                    'name'      => $v->name,
-                    'plate'     => $v->plate,
-                    'fleet'     => $v->fleet?->name ?? '—',
-                    'status'    => $v->status,
-                    'lat'       => $pos ? (float) $pos->latitude  : null,
+                    'id'        => $vehicle->id,
+                    'name'      => $vehicle->name,
+                    'plate'     => $vehicle->plate,
+                    'fleet'     => $vehicle->fleet?->name ?? '-',
+                    'status'    => $vehicle->status,
+                    'lat'       => $pos ? (float) $pos->latitude : null,
                     'lng'       => $pos ? (float) $pos->longitude : null,
                     'speed'     => $pos ? (float) $pos->speed_kmh : null,
-                    'heading'   => $pos ? (int)   $pos->heading   : null,
-                    'ts'        => $pos ? $pos->ts                 : null,
+                    'heading'   => $pos ? (int) $pos->heading : null,
+                    'ts'        => $pos?->position_ts,
+                    'freshness' => $pos?->live_freshness_status,
                     'has_pos'   => $pos !== null,
                 ];
             })
@@ -80,14 +60,13 @@ class VehicleMapPage extends Page
         $withPos    = $vehicles->where('has_pos', true)->count();
         $withoutPos = $vehicles->where('has_pos', false)->count();
 
-        // Géozones actives de l'org pour overlay
         $geozones = GeoZone::where('organization_id', $orgId)
             ->where('status', 'active')
             ->get(['id', 'name', 'zone_type', 'geometry'])
-            ->map(fn ($z) => [
-                'name'     => $z->name,
-                'type'     => $z->zone_type,
-                'geometry' => is_array($z->geometry) ? $z->geometry : json_decode($z->geometry, true),
+            ->map(fn ($zone) => [
+                'name'     => $zone->name,
+                'type'     => $zone->zone_type,
+                'geometry' => is_array($zone->geometry) ? $zone->geometry : json_decode($zone->geometry, true),
             ])
             ->values();
 

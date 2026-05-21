@@ -27,6 +27,7 @@ class NormalizationMap
             'device_id'           => 'device_id',          // deviceId injecté par flattenMessage
             'event_type'          => 'event_type',          // injecté par WialonSyncJob
             'vehicle_id'          => 'vehicle_id',          // injecté depuis WialonUnitMapping
+            'provider_unit_id'    => 'provider_unit_id',
         ],
         'traccar' => [
             'speed'      => 'speed_kmh',
