@@ -8,6 +8,7 @@ use App\Insight\KnowledgeBase\TrendBuilder;
 use App\Models\Alert;
 use App\Models\KpiRecord;
 use App\Models\Trip;
+use App\Models\VehicleCurrentPosition;
 use Carbon\Carbon;
 
 /**
@@ -45,7 +46,7 @@ class PacketBuilder
         $trends    = $this->trends->build($scopeType, $scopeId, $organizationId);
         $benchmark = $this->benchmark->build($scopeType, $scopeId, $organizationId);
 
-        $lastPosition = $this->loadLastPosition($scopeType, $scopeId);
+        $lastPosition = $this->loadLastPosition($scopeType, $scopeId, $organizationId);
 
         return [
             'scope_type'       => $scopeType,
@@ -104,28 +105,28 @@ class PacketBuilder
             ->toArray();
     }
 
-    private function loadLastPosition(string $scopeType, string $scopeId): ?array
+    private function loadLastPosition(string $scopeType, string $scopeId, string $organizationId): ?array
     {
         if ($scopeType !== 'vehicle') {
             return null;
         }
 
-        $event = \App\Models\TelemetryEvent::where('vehicle_id', $scopeId)
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->orderByDesc('ts')
-            ->first(['latitude', 'longitude', 'speed_kmh', 'ignition', 'ts']);
+        $position = VehicleCurrentPosition::where('organization_id', $organizationId)
+            ->where('vehicle_id', $scopeId)
+            ->first(['latitude', 'longitude', 'speed_kmh', 'ignition', 'position_ts', 'freshness_status', 'source_status']);
 
-        if (! $event) {
+        if (! $position) {
             return null;
         }
 
         return [
-            'latitude'    => $event->latitude,
-            'longitude'   => $event->longitude,
-            'speed_kmh'   => $event->speed_kmh,
-            'ignition'    => $event->ignition,
-            'recorded_at' => $event->ts?->toIso8601String(),
+            'latitude'         => $position->latitude,
+            'longitude'        => $position->longitude,
+            'speed_kmh'        => $position->speed_kmh,
+            'ignition'         => $position->ignition,
+            'recorded_at'      => $position->position_ts?->toIso8601String(),
+            'freshness_status' => $position->live_freshness_status,
+            'source_status'    => $position->source_status,
         ];
     }
 

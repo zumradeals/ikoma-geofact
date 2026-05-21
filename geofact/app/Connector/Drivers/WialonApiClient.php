@@ -247,6 +247,7 @@ class WialonApiClient
         $flat = [
             'timestamp' => isset($msg['t']) ? (int) $msg['t'] : null,
             'device_id' => $deviceId,
+            'provider_unit_id' => (string) $unitId,
         ];
 
         // Coordonnées et cinématique depuis pos

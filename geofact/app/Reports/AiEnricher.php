@@ -120,7 +120,7 @@ PROMPT;
             $ruleLines .= "  - {$rule} : {$count} alerte(s)\n";
         }
 
-        $locationLine = ($data['last_seen_latitude'] && $data['last_seen_longitude'])
+        $locationLine = ($data['last_seen_latitude'] !== null && $data['last_seen_longitude'] !== null)
             ? "DERNIÈRE POSITION : lat={$data['last_seen_latitude']}, lon={$data['last_seen_longitude']}, vitesse={$data['last_seen_speed_kmh']} km/h, moteur=" . ($data['last_seen_ignition'] ? 'allumé' : 'éteint') . " (relevé le {$data['last_seen_at']})"
             : "DERNIÈRE POSITION : non disponible";
 

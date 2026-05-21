@@ -6,6 +6,7 @@ use App\Models\Alert;
 use App\Models\TelemetryEvent;
 use App\Models\Trip;
 use App\Models\Vehicle;
+use App\Models\VehicleCurrentPosition;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -21,10 +22,8 @@ class FleetDataCollector
         $vehicleIds = $vehicles->pluck('id');
 
         // Véhicules localisés (au moins 1 event GPS sur la période)
-        $localizedIds = TelemetryEvent::where('organization_id', $orgId)
-            ->whereNotNull('latitude')
-            ->whereBetween('ts', [$from, $to])
-            ->distinct()
+        $localizedIds = VehicleCurrentPosition::where('organization_id', $orgId)
+            ->whereIn('vehicle_id', $vehicleIds)
             ->pluck('vehicle_id');
 
         // Trajets sur la période
