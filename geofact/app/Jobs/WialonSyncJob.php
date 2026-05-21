@@ -178,6 +178,17 @@ class WialonSyncJob
                         $payload['vehicle_id'] = $mapping->ikoma_vehicle_id;
                     }
 
+                    // Guard : bloquer les événements orphelins sans vehicle_id
+                    if (empty($payload['vehicle_id'])) {
+                        Log::warning('geofact.wialon.sync.orphan_event_blocked', [
+                            'unit_id'   => $unitId,
+                            'msg_ts'    => $msgTs,
+                            'device_id' => $device->id,
+                            'reason'    => 'vehicle_id absent — mapping ikoma_vehicle_id vide',
+                        ]);
+                        continue;
+                    }
+
                     $syntheticRequest = Request::create(
                         '/wialon/ingest',
                         'POST',
@@ -255,6 +266,17 @@ class WialonSyncJob
 
             if ($mapping->ikoma_vehicle_id) {
                 $payload['vehicle_id'] = $mapping->ikoma_vehicle_id;
+            }
+
+            // Guard : bloquer les événements orphelins sans vehicle_id
+            if (empty($payload['vehicle_id'])) {
+                Log::warning('geofact.wialon.sync.orphan_event_blocked', [
+                    'unit_id'   => $unitId,
+                    'msg_ts'    => $msgTs,
+                    'device_id' => $device->id,
+                    'reason'    => 'vehicle_id absent — mapping ikoma_vehicle_id vide',
+                ]);
+                return;
             }
 
             $syntheticRequest = Request::create(
