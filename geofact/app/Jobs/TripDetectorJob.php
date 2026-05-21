@@ -54,11 +54,13 @@ class TripDetectorJob
     private function processVehicle(Vehicle $vehicle): void
     {
         $activeTrip = Trip::where('vehicle_id', $vehicle->id)
+            ->where('organization_id', $vehicle->organization_id)
             ->where('status', 'active')
             ->first();
 
         // Récupère les derniers events du véhicule
         $recentEvents = DB::table('telemetry_events')
+            ->where('organization_id', $vehicle->organization_id)
             ->where('vehicle_id', $vehicle->id)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
@@ -67,8 +69,10 @@ class TripDetectorJob
             ->get(['ts', 'latitude', 'longitude', 'speed_kmh', 'ignition']);
 
         $latestEvent = DB::table('telemetry_events')
+            ->where('organization_id', $vehicle->organization_id)
             ->where('vehicle_id', $vehicle->id)
             ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
             ->orderByDesc('ts')
             ->first(['ts', 'latitude', 'longitude', 'speed_kmh', 'ignition']);
 
@@ -87,20 +91,21 @@ class TripDetectorJob
     {
         $latestTs = Carbon::parse($latestEvent->ts);
         $tripAge  = Carbon::parse($trip->started_at)->diffInMinutes(now());
+        $minutesSinceLastEvent = $latestTs->diffInMinutes(now());
 
-        // Sécurité absolue : clôturer tout trajet actif depuis plus de 6 heures
-        if ($tripAge >= self::ORPHAN_THRESHOLD_MINUTES) {
+        // Securite absolue : trajet ancien et sans signal GPS depuis plus de 6 heures
+        if ($tripAge >= self::ORPHAN_THRESHOLD_MINUTES && $minutesSinceLastEvent >= self::ORPHAN_THRESHOLD_MINUTES) {
             $this->forceCloseOrphan($trip, $latestEvent);
             Log::warning('geofact.trip_detector.closed_orphan', [
-                'trip_id'    => $trip->id,
-                'vehicle_id' => $vehicle->id,
-                'trip_age_h' => round($tripAge / 60, 1),
+                'trip_id'           => $trip->id,
+                'vehicle_id'        => $vehicle->id,
+                'trip_age_h'        => round($tripAge / 60, 1),
+                'last_signal_age_h' => round($minutesSinceLastEvent / 60, 1),
             ]);
             return;
         }
 
         // Fermeture par silence GPS (véhicule offline)
-        $minutesSinceLastEvent = $latestTs->diffInMinutes(now());
         if ($minutesSinceLastEvent >= self::OFFLINE_THRESHOLD_MINUTES) {
             $this->closeTrip($trip, $latestEvent, 'completed');
             Log::info('geofact.trip_detector.closed_offline', ['vehicle_id' => $vehicle->id]);
@@ -154,6 +159,7 @@ class TripDetectorJob
         $endedAt = $lastEvent->ts;
 
         $coords = DB::table('telemetry_events')
+            ->where('organization_id', $trip->organization_id)
             ->where('vehicle_id', $trip->vehicle_id)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
@@ -194,6 +200,7 @@ class TripDetectorJob
         $endedAt = $lastEvent->ts;
 
         $coords = DB::table('telemetry_events')
+            ->where('organization_id', $trip->organization_id)
             ->where('vehicle_id', $trip->vehicle_id)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
