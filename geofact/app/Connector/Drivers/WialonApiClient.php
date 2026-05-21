@@ -72,7 +72,7 @@ class WialonApiClient
 
     /**
      * Liste toutes les unités Wialon accessibles via cette session.
-     * flags=0x481 : 0x1=base + 0x80=messages params + 0x400=position/lmsg.
+     * flags=0x481 : 0x1=base + 0x80=champs admin + 0x400=position/lmsg.
      * Si lmsg reste null, vérifier les droits uacl du token Wialon (avl_unit_pos).
      *
      * @return array<int, array{id: int, name: string, last_pos: array|null}>
@@ -116,22 +116,28 @@ class WialonApiClient
             Log::info('geofact.wialon.get_units.item_keys', [
                 'keys'     => array_keys($first),
                 'lmsg'     => $lmsgVal === null ? 'absent' : (is_array($lmsgVal) ? 'present' : 'null'),
-                'has_pos'  => isset($lmsgVal['pos']),
+                'has_pos'  => is_array($lmsgVal) && isset($lmsgVal['pos']),
                 'uacl'     => $first['uacl'] ?? 'absent',
             ]);
         }
 
         $units = [];
         foreach ($items as $item) {
-            $lmsg    = $item['lmsg'] ?? null;
-            $unitPos = $item['pos']  ?? null; // dernière pos connue (flag 0x80 si disponible)
+            $rawLmsg = $item['lmsg'] ?? null;
+            $lmsg    = is_array($rawLmsg) ? $rawLmsg : null;
+            $unitPos = $item['pos']  ?? null; // derniere position connue (flag 0x400)
 
-            // Fallback : si lmsg n'a pas de pos (ex. message allumage), injecter la dernière position connue
-            if ($lmsg && ! isset($lmsg['pos']) && $unitPos) {
+            // Fallback : si lmsg n'a pas de pos, utiliser la derniere position connue.
+            $unitPos = is_array($unitPos) ? $unitPos : null;
+
+            if ($unitPos && (! $lmsg || ! isset($lmsg['pos']))) {
+                $lmsg        = $lmsg ?? [];
                 $lmsg['pos'] = $unitPos;
+                $lmsg['t']   = $unitPos['t'] ?? ($lmsg['t'] ?? null);
             }
 
-            $pos  = $lmsg['pos'] ?? null;
+            $pos   = is_array($lmsg['pos'] ?? null) ? $lmsg['pos'] : null;
+            $posTs = $pos['t'] ?? $lmsg['t'] ?? null;
 
             $units[] = [
                 'id'      => (int) ($item['id'] ?? 0),
@@ -140,7 +146,7 @@ class WialonApiClient
                     'lat'   => $pos['y'] ?? null,
                     'lon'   => $pos['x'] ?? null,
                     'speed' => $pos['s'] ?? null,
-                    'ts'    => $lmsg['t'] ?? null,
+                    'ts'    => $posTs,
                 ] : null,
                 'lmsg'    => $lmsg, // message brut pour le sync job
             ];
@@ -268,11 +274,54 @@ class WialonApiClient
             $flat['temperature_celsius'] = (float) $p['engine_temp'];
         }
 
-        // Ignition : champ i est un bitfield — bit 0 = ignition
-        if (isset($msg['i'])) {
-            $flat['ignition'] = ((int) $msg['i'] & 1) === 1;
+        // Correction : "i" est une entree digitale brute, pas un etat moteur fiable.
+        $ignition = $this->extractIgnition($p);
+        if ($ignition !== null) {
+            $flat['ignition'] = $ignition;
         }
 
         return $flat;
+    }
+
+    private function extractIgnition(array $params): ?bool
+    {
+        $candidateKeys = [
+            'ignition',
+            'ign',
+            'engine_ignition',
+            'engine_on',
+            'acc',
+            'ACC',
+        ];
+
+        foreach ($candidateKeys as $key) {
+            if (! array_key_exists($key, $params)) {
+                continue;
+            }
+
+            $value = $params[$key];
+
+            if (is_bool($value)) {
+                return $value;
+            }
+
+            if (is_numeric($value)) {
+                return (float) $value > 0;
+            }
+
+            if (is_string($value)) {
+                $normalized = strtolower(trim($value));
+
+                if (in_array($normalized, ['1', 'true', 'on', 'yes', 'allume', 'allumé'], true)) {
+                    return true;
+                }
+
+                if (in_array($normalized, ['0', 'false', 'off', 'no', 'eteint', 'éteint'], true)) {
+                    return false;
+                }
+            }
+        }
+
+        return null;
     }
 }

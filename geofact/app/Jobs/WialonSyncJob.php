@@ -148,6 +148,7 @@ class WialonSyncJob
 
         // Tente getMessages() pour récupérer tous les points GPS de la période
         $messages = $client->getMessages($sid, (int) $unitId, $fromTs, $nowTs);
+        $latestNonGpsTs = null;
 
         if (! empty($messages)) {
             $latestTs    = null; // ts max des messages GPS traités
@@ -231,8 +232,8 @@ class WialonSyncJob
             // ts maximal des messages non-GPS pour rétrécir la fenêtre du prochain
             // appel et éviter que loadCount:500 soit saturé par des heartbeats.
             if ($latestAnyTs && $latestAnyTs > (int) $mapping->last_message_ts) {
-                $mapping->update(['last_message_ts' => $latestAnyTs]);
-                Log::info('geofact.wialon.sync.advanced_past_non_gps', [
+                $latestNonGpsTs = $latestAnyTs;
+                Log::info('geofact.wialon.sync.non_gps_batch_deferred', [
                     'unit_id'        => $unitId,
                     'msg_count'      => count($messages),
                     'latest_any_ts'  => $latestAnyTs,
@@ -250,12 +251,14 @@ class WialonSyncJob
         $lmsg  = $unit['lmsg'] ?? null;
         $msgTs = isset($lmsg['t']) ? (int) $lmsg['t'] : null;
 
-        if (! $lmsg || ! $msgTs) {
+        if (! is_array($lmsg) || ! $msgTs) {
             Log::info('geofact.wialon.sync.no_data', ['unit_id' => $unitId]);
+            $this->advancePastNonGps($mapping, $latestNonGpsTs, $unitId);
             return;
         }
 
         if ($mapping->last_message_ts && $msgTs <= $mapping->last_message_ts) {
+            $this->advancePastNonGps($mapping, $latestNonGpsTs, $unitId);
             return;
         }
 
@@ -306,5 +309,19 @@ class WialonSyncJob
                 'error'   => $e->getMessage(),
             ]);
         }
+    }
+
+    private function advancePastNonGps(WialonUnitMapping $mapping, ?int $latestNonGpsTs, string|int $unitId): void
+    {
+        if (! $latestNonGpsTs || $latestNonGpsTs <= (int) $mapping->last_message_ts) {
+            return;
+        }
+
+        $mapping->update(['last_message_ts' => $latestNonGpsTs]);
+
+        Log::info('geofact.wialon.sync.advanced_past_non_gps', [
+            'unit_id'       => $unitId,
+            'latest_any_ts' => $latestNonGpsTs,
+        ]);
     }
 }

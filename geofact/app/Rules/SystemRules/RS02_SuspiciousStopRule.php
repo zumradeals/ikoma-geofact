@@ -31,7 +31,9 @@ class RS02_SuspiciousStopRule implements RuleInterface
         $thresholdHours = (int) ($config['threshold_hours'] ?? 4);
 
         $lastMoving = TelemetryEvent::where('vehicle_id', $event->vehicleId)
+            ->where('organization_id', $event->organizationId)
             ->where('speed_kmh', '>', 0)
+            ->where('ts', '<=', $event->timestamp)
             ->orderByDesc('ts')
             ->first();
 
@@ -39,7 +41,7 @@ class RS02_SuspiciousStopRule implements RuleInterface
             return null;
         }
 
-        $elapsedHours = $lastMoving->ts->diffInHours(now());
+        $elapsedHours = $lastMoving->ts->diffInHours($event->timestamp);
 
         if ($elapsedHours < $thresholdHours) {
             return null;

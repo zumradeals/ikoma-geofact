@@ -67,9 +67,17 @@ class RulesEngine implements RulesEngineInterface
                 $dedupKey = $alert->vehicle_id . '|' . $alert->rule_id;
                 $alert->dedup_key = $dedupKey;
 
-                $recentExists = Alert::where('dedup_key', $dedupKey)
-                    ->where('triggered_at', '>=', now()->subHour())
-                    ->whereIn('status', ['open', 'triggered', 'delivered'])
+                $triggeredAt = $alert->triggered_at instanceof \Carbon\CarbonInterface
+                    ? $alert->triggered_at
+                    : \Carbon\Carbon::parse($alert->triggered_at);
+
+                $recentExists = Alert::where('organization_id', $alert->organization_id)
+                    ->where('dedup_key', $dedupKey)
+                    ->whereBetween('triggered_at', [
+                        $triggeredAt->copy()->subHour(),
+                        $triggeredAt->copy()->addHour(),
+                    ])
+                    ->whereIn('status', ['open', 'triggered', 'delivered', 'escalated'])
                     ->exists();
 
                 if ($recentExists) {

@@ -86,11 +86,18 @@ PROMPT;
         // Extraire le JSON de la réponse
         preg_match('/\{.*\}/s', $text, $matches);
         if (empty($matches[0])) {
+            Log::warning('geofact.report.ai.json_missing', [
+                'raw_prefix' => mb_substr($text, 0, 300),
+            ]);
             return $this->fallback();
         }
 
         $parsed = json_decode($matches[0], true);
         if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::warning('geofact.report.ai.json_invalid', [
+                'json_error' => json_last_error_msg(),
+                'raw_prefix' => mb_substr($text, 0, 300),
+            ]);
             return $this->fallback();
         }
 
@@ -104,6 +111,7 @@ PROMPT;
     public function enrichVehicleReport(array $data): array
     {
         if (empty($this->apiKey)) {
+            Log::warning('geofact.report.ai.missing_key', ['report_type' => 'vehicle']);
             return $this->fallback();
         }
 
@@ -156,6 +164,7 @@ PROMPT;
     public function enrichDriverReport(array $data): array
     {
         if (empty($this->apiKey)) {
+            Log::warning('geofact.report.ai.missing_key', ['report_type' => 'driver']);
             return $this->fallback();
         }
 
@@ -215,11 +224,24 @@ PROMPT;
             ]);
 
             if (! $response->successful()) {
-                Log::error('geofact.report.ai.api_error', ['status' => $response->status()]);
+                Log::error('geofact.report.ai.api_error', [
+                    'status'      => $response->status(),
+                    'body_prefix' => mb_substr($response->body(), 0, 500),
+                ]);
                 return $this->fallback();
             }
 
-            return $this->parseAiResponse($response->json('content.0.text', ''));
+            $text = $response->json('content.0.text', '');
+
+            if (trim((string) $text) === '') {
+                Log::error('geofact.report.ai.empty_response', [
+                    'status'      => $response->status(),
+                    'body_prefix' => mb_substr($response->body(), 0, 500),
+                ]);
+                return $this->fallback();
+            }
+
+            return $this->parseAiResponse($text);
         } catch (\Throwable $e) {
             Log::error('geofact.report.ai.exception', ['error' => $e->getMessage()]);
             return $this->fallback();
