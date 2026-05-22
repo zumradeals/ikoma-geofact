@@ -104,6 +104,7 @@ class Vehicle extends Model
 
     public function currentPosition(): HasOne
     {
-        return $this->hasOne(VehicleCurrentPosition::class);
+        return $this->hasOne(VehicleCurrentPosition::class)
+                    ->whereColumn('organization_id', 'vehicles.organization_id');
     }
 }
