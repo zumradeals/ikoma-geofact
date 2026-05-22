@@ -7,6 +7,7 @@ use App\Connector\Drivers\WialonApiClient;
 use App\Models\Connector;
 use App\Models\Device;
 use App\Models\WialonUnitMapping;
+use App\Services\VehicleCurrentPositionProjector;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ class WialonSyncJob
 {
     use Dispatchable;
 
-    public function handle(ConnectorPipeline $pipeline): void
+    public function handle(ConnectorPipeline $pipeline, VehicleCurrentPositionProjector $projector): void
     {
         Log::info('geofact.wialon.sync.started');
 
@@ -62,17 +63,18 @@ class WialonSyncJob
                 continue;
             }
 
-            $this->syncConnector($pipeline, $client, $connector, $sid);
+            $this->syncConnector($pipeline, $projector, $client, $connector, $sid);
         }
 
         Log::info('geofact.wialon.sync.completed', ['connectors' => $connectors->count()]);
     }
 
     private function syncConnector(
-        ConnectorPipeline $pipeline,
-        WialonApiClient   $client,
-        Connector         $connector,
-        string            $sid
+        ConnectorPipeline              $pipeline,
+        VehicleCurrentPositionProjector $projector,
+        WialonApiClient                $client,
+        Connector                      $connector,
+        string                         $sid
     ): void {
         $orgId = $connector->organization_id;
 
@@ -100,7 +102,7 @@ class WialonSyncJob
                 Log::warning('geofact.wialon.sync.unit_not_found', ['unit_id' => $mapping->wialon_unit_id]);
                 continue;
             }
-            $this->syncUnitWithHistory($pipeline, $client, $connector, $mapping, $unit, $sid, $now);
+            $this->syncUnitWithHistory($pipeline, $projector, $client, $connector, $mapping, $unit, $sid, $now);
         }
 
         DB::table('connectors')
@@ -116,13 +118,14 @@ class WialonSyncJob
      * points GPS consécutifs pour calculer la distance réelle d'un trajet.
      */
     private function syncUnitWithHistory(
-        ConnectorPipeline $pipeline,
-        WialonApiClient   $client,
-        Connector         $connector,
-        WialonUnitMapping $mapping,
-        array             $unit,
-        string            $sid,
-        int               $nowTs
+        ConnectorPipeline               $pipeline,
+        VehicleCurrentPositionProjector $projector,
+        WialonApiClient                 $client,
+        Connector                       $connector,
+        WialonUnitMapping               $mapping,
+        array                           $unit,
+        string                          $sid,
+        int                             $nowTs
     ): void {
         $unitId = $mapping->wialon_unit_id;
 
@@ -140,6 +143,22 @@ class WialonSyncJob
                 'created_by'  => null,
             ]
         );
+
+        // ── Direct upsert position ─────────────────────────────────────────────
+        // Mise à jour de VehicleCurrentPosition depuis last_pos Wialon, INDÉPENDAMMENT
+        // du pipeline. Garantit que la position affichée dans les rapports est toujours
+        // synchrone avec Wialon, même si getMessages() échoue ou si last_message_ts
+        // a été avancé au-delà du timestamp GPS par des heartbeats non-GPS.
+        if ($mapping->ikoma_vehicle_id && is_array($unit['last_pos'] ?? null)) {
+            $lastPosWithUnit = $unit['last_pos'] + ['provider_unit_id' => (string) $unitId];
+            $projector->projectFromLastPos(
+                $connector->organization_id,
+                $mapping->ikoma_vehicle_id,
+                $connector->id,
+                $device->id,
+                $lastPosWithUnit
+            );
+        }
 
         // Fenêtre de temps : depuis le dernier message traité, max 24h en arrière pour rattraper le retard
         $fromTs = $mapping->last_message_ts
@@ -251,14 +270,17 @@ class WialonSyncJob
         $lmsg  = $unit['lmsg'] ?? null;
         $msgTs = isset($lmsg['t']) ? (int) $lmsg['t'] : null;
 
+        // Timestamp GPS du lmsg : sert de borne haute pour advancePastNonGps()
+        $lmsgGpsTs = (is_array($lmsg) && isset($lmsg['pos']) && $msgTs) ? $msgTs : null;
+
         if (! is_array($lmsg) || ! $msgTs) {
             Log::info('geofact.wialon.sync.no_data', ['unit_id' => $unitId]);
-            $this->advancePastNonGps($mapping, $latestNonGpsTs, $unitId);
+            $this->advancePastNonGps($mapping, $latestNonGpsTs, $unitId, $lmsgGpsTs);
             return;
         }
 
         if ($mapping->last_message_ts && $msgTs <= $mapping->last_message_ts) {
-            $this->advancePastNonGps($mapping, $latestNonGpsTs, $unitId);
+            $this->advancePastNonGps($mapping, $latestNonGpsTs, $unitId, $lmsgGpsTs);
             return;
         }
 
@@ -311,10 +333,29 @@ class WialonSyncJob
         }
     }
 
-    private function advancePastNonGps(WialonUnitMapping $mapping, ?int $latestNonGpsTs, string|int $unitId): void
-    {
+    /**
+     * Avance last_message_ts jusqu'au dernier heartbeat non-GPS pour rétrécir
+     * la fenêtre du prochain getMessages(). Ne dépasse jamais le timestamp GPS
+     * du lmsg : avancer au-delà bloquerait le traitement futur de ce fix GPS
+     * via le fallback lmsg (guard msgTs <= last_message_ts).
+     */
+    private function advancePastNonGps(
+        WialonUnitMapping $mapping,
+        ?int              $latestNonGpsTs,
+        string|int        $unitId,
+        ?int              $lmsgGpsTs = null
+    ): void {
         if (! $latestNonGpsTs || $latestNonGpsTs <= (int) $mapping->last_message_ts) {
             return;
+        }
+
+        // Ne jamais dépasser le timestamp GPS du lmsg : cela bloquerait
+        // le traitement de cette position via le fallback lmsg.
+        if ($lmsgGpsTs !== null && $latestNonGpsTs >= $lmsgGpsTs) {
+            $latestNonGpsTs = $lmsgGpsTs - 1;
+            if ($latestNonGpsTs <= (int) $mapping->last_message_ts) {
+                return;
+            }
         }
 
         $mapping->update(['last_message_ts' => $latestNonGpsTs]);
