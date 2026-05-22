@@ -126,7 +126,11 @@ PROMPT;
             'stale'   => '⚠ OBSOLÈTE (> 1 h)',
             default   => 'fraîcheur inconnue',
         };
-        $locationLine = ($data['last_seen_latitude'] !== null && $data['last_seen_longitude'] !== null)
+        $hasValidCoords = $data['last_seen_latitude'] !== null
+            && $data['last_seen_longitude'] !== null
+            && !((float) $data['last_seen_latitude'] === 0.0 && (float) $data['last_seen_longitude'] === 0.0);
+
+        $locationLine = $hasValidCoords
             ? "DERNIÈRE POSITION OFFICIELLE IKOMA : lat={$data['last_seen_latitude']}, lon={$data['last_seen_longitude']}, vitesse={$data['last_seen_speed_kmh']} km/h, moteur=" . ($data['last_seen_ignition'] ? 'allumé' : 'éteint') . " — relevé le {$data['last_seen_at']} [{$freshnessLabel}]"
             : "DERNIÈRE POSITION OFFICIELLE IKOMA : non disponible (aucun signal GPS intégré)";
 

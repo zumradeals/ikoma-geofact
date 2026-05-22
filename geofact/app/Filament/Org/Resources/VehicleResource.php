@@ -118,7 +118,15 @@ class VehicleResource extends Resource
                     ->label('Dernière pos. GPS')
                     ->dateTime('d/m/Y H:i')
                     ->placeholder('—')
-                    ->sortable()
+                    ->sortable(query: fn ($query, string $direction) =>
+                        $query->orderBy(
+                            \App\Models\VehicleCurrentPosition::select('position_ts')
+                                ->whereColumn('vehicle_id', 'vehicles.id')
+                                ->whereColumn('organization_id', 'vehicles.organization_id')
+                                ->limit(1),
+                            $direction
+                        )
+                    )
                     ->color(fn (Vehicle $record) => match ($record->currentPosition?->live_freshness_status) {
                         'fresh'   => 'success',
                         'delayed' => 'warning',
