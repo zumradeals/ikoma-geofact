@@ -71,13 +71,13 @@ class RulesEngine implements RulesEngineInterface
                     ? $alert->triggered_at
                     : \Carbon\Carbon::parse($alert->triggered_at);
 
+                // Dedup : vérifie TOUS les statuts (y compris resolved/expired).
+                // Filtrer uniquement les alertes actives causait un flood : dès qu'une
+                // alerte passait en resolved, le dedup se vidait et la règle re-tirait
+                // sur chaque événement GPS suivant (ex : 1782 RS02 en 3 jours).
                 $recentExists = Alert::where('organization_id', $alert->organization_id)
                     ->where('dedup_key', $dedupKey)
-                    ->whereBetween('triggered_at', [
-                        $triggeredAt->copy()->subHour(),
-                        $triggeredAt->copy()->addHour(),
-                    ])
-                    ->whereIn('status', ['open', 'triggered', 'delivered', 'escalated'])
+                    ->where('triggered_at', '>=', $triggeredAt->copy()->subHour())
                     ->exists();
 
                 if ($recentExists) {
