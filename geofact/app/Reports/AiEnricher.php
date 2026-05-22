@@ -134,6 +134,8 @@ PROMPT;
             ? "DERNIÈRE POSITION OFFICIELLE IKOMA : lat={$data['last_seen_latitude']}, lon={$data['last_seen_longitude']}, vitesse={$data['last_seen_speed_kmh']} km/h, moteur=" . ($data['last_seen_ignition'] ? 'allumé' : 'éteint') . " — relevé le {$data['last_seen_at']} [{$freshnessLabel}]"
             : "DERNIÈRE POSITION OFFICIELLE IKOMA : non disponible (aucun signal GPS intégré)";
 
+        $activityNote = $data['activity_note'] ?? 'Trajets officiels IKOMA segmentés';
+
         $prompt = <<<PROMPT
 Tu es analyste expert en gestion de flotte pour PME africaines.
 Analyse les données suivantes pour UN véhicule et génère un rapport structuré en français.
@@ -142,6 +144,7 @@ VÉHICULE : {$data['vehicle_plate']} ({$data['vehicle_brand']} {$data['vehicle_m
 FLOTTE : {$data['fleet_name']}
 {$locationLine}
 PÉRIODE : {$data['period_from']} → {$data['period_to']}
+SOURCE DES DONNÉES : {$activityNote}
 
 ACTIVITÉ :
 - Trajets effectués : {$data['total_trips']}
