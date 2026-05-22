@@ -229,10 +229,13 @@ class TripDetectorJob
             return false;
         }
 
-        // Tous les events récents ont speed=0 et ignition=0
+        // Véhicule arrêté = vitesse nulle sur tous les events récents.
+        // L'ignition (ACC) n'est PAS prise en compte ici : un véhicule garé
+        // moteur allumé (ignition=1, speed=0) doit fermer le trajet en cours
+        // après STOP_THRESHOLD_MINUTES, sinon le trip reste ouvert indéfiniment
+        // et aucun nouveau trajet ne peut jamais être ouvert.
         return $events->every(
             fn ($e) => ($e->speed_kmh <= 0 || $e->speed_kmh === null)
-                    && ($e->ignition == 0  || $e->ignition === null)
         );
     }
 
